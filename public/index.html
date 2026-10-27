@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playa Alerta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body class="bg-gray-100 font-sans h-screen w-screen overflow-hidden relative">
+
+   
+    <header class="absolute top-0 w-full z-20 bg-white shadow-md p-3 flex justify-between items-center">
+      
+<div class="flex items-center gap-3">
+    <img src="logo.png" alt="Icono Playa Alerta" class="h-11 object-contain">
+    <h1 class="text-[#E59837] font-bold text-xl tracking-widest uppercase">
+        Playa Alerta
+    </h1>
+</div>
+        <button id="btnLogin" class="text-white bg-[#003366] hover:bg-[#002244] px-5 py-2 rounded-full font-medium shadow-sm active:scale-95 transition-colors">
+            Enviar opinion
+        </button>
+         <button id="btnLogin2" class="text-white bg-[#003366] hover:bg-[#002244] px-5 py-2 rounded-full font-medium shadow-sm active:scale-95 transition-colors">
+            Preguntas frecuentes
+        </button>
+        <button id="btnLogin2" class="text-white bg-[#003366] hover:bg-[#002244] px-5 py-2 rounded-full font-medium shadow-sm active:scale-95 transition-colors">
+            Acerca de nosotros
+        </button>
+    </header>
+
+    <main id="map" class="w-full h-full z-0"></main>
+
+    <button id="fabReport" class="absolute bottom-6 right-6 z-20 bg-[#FF8C00] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:bg-orange-700 transition-colors focus:outline-none" aria-label="Crear nuevo reporte">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+    </button>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="map.js"></script>
+</body>
+</html>
