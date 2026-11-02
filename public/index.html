@@ -1,41 +1,221 @@
 <!DOCTYPE html>
+<!--
+    =============================================================
+    ARCHIVO: index.html
+    PROYECTO: Playa Alerta
+    DESCRIPCIÓN: Documento HTML principal de la aplicación.
+                 Define únicamente la ESTRUCTURA del contenido
+                 (responsabilidad del HTML), delegando:
+                   - Estilos  → styles.css
+                   - Lógica   → map.js  (clases OOP)
+    AUTOR: Equipo Playa Alerta
+    ÚLTIMA ACTUALIZACIÓN: 2026-11-02
+    =============================================================
+-->
 <html lang="es">
+
 <head>
+    <!-- ── Meta etiquetas obligatorias ── -->
     <meta charset="UTF-8">
+    <!-- Ajusta el viewport para que la app se vea bien en móviles -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Playa Alerta</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ── Hoja de estilos de Leaflet (mapa interactivo) ── -->
+    <!-- Debe cargarse ANTES de styles.css para que nuestras reglas puedan sobrescribirla -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- ── Tailwind CSS (clases utilitarias de diseño) ── -->
+    <!-- Cargado desde CDN; en producción se reemplazaría por un build local -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ── Hoja de estilos propia del proyecto ── -->
+    <!-- Contiene únicamente lo que Tailwind no puede cubrir por defecto -->
+    <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="bg-gray-100 font-sans h-screen w-screen overflow-hidden relative">
 
-   
-    <header class="absolute top-0 w-full z-20 bg-white shadow-md p-3 flex justify-between items-center">
-      
-<div class="flex items-center gap-3">
-    <img src="logo.png" alt="Icono Playa Alerta" class="h-11 object-contain">
-    <h1 class="text-[#E59837] font-bold text-xl tracking-widest uppercase">
-        Playa Alerta
-    </h1>
-</div>
-        <button id="btnLogin" class="text-white bg-[#003366] hover:bg-[#002244] px-5 py-2 rounded-full font-medium shadow-sm active:scale-95 transition-colors">
-            Enviar opinion
+<body class="font-sans">
+    <!--
+        NOTA SOBRE LA ESTRUCTURA:
+        Todos los elementos usan "position: absolute" o "position: fixed"
+        para superponerse sobre el mapa, que ocupa el 100% de la pantalla.
+        El z-index controla qué elementos quedan encima de qué otros.
+    -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECCIÓN 1 — MAPA PRINCIPAL
+         Elemento base de la aplicación. Leaflet inyectará aquí
+         el mapa interactivo al ejecutar MapController.inicializar().
+         z-index: 0 → capa más baja (todo lo demás queda encima)
+         ═══════════════════════════════════════════════════════ -->
+    <main id="map">
+        <!-- Leaflet llena este elemento dinámicamente con el mapa -->
+    </main>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECCIÓN 2 — LOGO / IDENTIDAD DE MARCA
+         Esquina superior izquierda, flotando sobre el mapa.
+         Usa "glassmorphism": fondo translúcido + blur de Tailwind.
+         z-index: 20 → encima del mapa pero debajo de modales
+         ═══════════════════════════════════════════════════════ -->
+    <div class="absolute top-4 left-4 z-20
+                flex items-center gap-2
+                bg-white/85 backdrop-blur-sm
+                rounded-2xl shadow-lg px-3 py-2"
+         role="banner"
+         aria-label="Logotipo Playa Alerta">
+
+        <!-- Imagen del logo circular -->
+        <img src="logo.png"
+             alt="Logo de Playa Alerta"
+             class="h-12 w-12 rounded-full object-cover shadow-md">
+
+        <!-- Nombre de la marca en dos líneas con color institucional -->
+        <span class="text-[#E59837] font-extrabold text-lg tracking-widest uppercase leading-tight">
+            Playa<br>Alerta
+        </span>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECCIÓN 3 — BOTÓN DE PERFIL DE USUARIO
+         Esquina superior derecha, flotando sobre el mapa.
+         Al hacer click, UIController abrirá el panel de perfil.
+         ═══════════════════════════════════════════════════════ -->
+    <div class="absolute top-4 right-4 z-20">
+
+        <!-- id="btnUsuario" → UIController lo busca por este ID -->
+        <button id="btnUsuario"
+                class="w-14 h-14 rounded-full
+                       bg-[#003366] hover:bg-[#002244]
+                       flex items-center justify-center
+                       shadow-lg active:scale-95 transition-all
+                       focus:outline-none"
+                aria-label="Abrir perfil de usuario">
+
+            <!-- Ícono SVG de silueta de persona (no depende de fuentes externas) -->
+            <svg class="w-7 h-7 text-white"
+                 fill="currentColor"
+                 viewBox="0 0 24 24"
+                 aria-hidden="true">
+                <!--
+                    Path describe la silueta de una persona:
+                    - Círculo superior = cabeza
+                    - Forma inferior   = cuerpo / hombros
+                -->
+                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4
+                         7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2
+                         0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+            </svg>
         </button>
-         <button id="btnLogin2" class="text-white bg-[#003366] hover:bg-[#002244] px-5 py-2 rounded-full font-medium shadow-sm active:scale-95 transition-colors">
-            Preguntas frecuentes
-        </button>
-        <button id="btnLogin2" class="text-white bg-[#003366] hover:bg-[#002244] px-5 py-2 rounded-full font-medium shadow-sm active:scale-95 transition-colors">
-            Acerca de nosotros
-        </button>
-    </header>
+    </div>
 
-    <main id="map" class="w-full h-full z-0"></main>
 
-    <button id="fabReport" class="absolute bottom-6 right-6 z-20 bg-[#FF8C00] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:bg-orange-700 transition-colors focus:outline-none" aria-label="Crear nuevo reporte">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-    </button>
+    <!-- ═══════════════════════════════════════════════════════
+         SECCIÓN 4 — MENÚ DE REPORTE RÁPIDO
+         Esquina inferior derecha. Panel con efecto glassmorphism
+         que agrupa los botones de reporte disponibles.
+         Los estilos de #quickReportMenu viven en styles.css.
+         ═══════════════════════════════════════════════════════ -->
+    <div id="quickReportMenu"
+         class="absolute bottom-4 right-4 z-20
+                rounded-3xl shadow-2xl px-5 pt-3 pb-4"
+         role="region"
+         aria-label="Menú de reporte rápido">
 
+        <!-- Etiqueta del panel -->
+        <p class="text-xs font-bold text-gray-500
+                  uppercase tracking-widest mb-3 text-center">
+            Reporte Rápido
+        </p>
+
+        <!-- Contenedor flex horizontal de los botones de reporte -->
+        <div class="flex items-end gap-5">
+
+            <!-- ── Botón 1: Tráfico ── -->
+            <div class="flex flex-col items-center gap-1">
+                <!-- Etiqueta textual del botón -->
+                <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    Tráfico
+                </span>
+
+                <!--
+                    id="btnTrafico" → UIController._registrarEventoTrafico() lo escucha.
+                    La clase "report-btn" aplica el estilo circular definido en styles.css.
+                    El color de fondo (amber) se añade con Tailwind.
+                -->
+                <button id="btnTrafico"
+                        class="report-btn bg-amber-400 hover:bg-amber-500"
+                        aria-label="Reportar tráfico en mi ubicación">
+
+                    <!-- Ícono SVG de semáforo — representa tráfico vehicular -->
+                    <svg class="w-8 h-8 text-white"
+                         fill="currentColor"
+                         viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <!--
+                            Semáforo simplificado:
+                            - Cuerpo vertical con 3 luces (verde, amarilla, roja)
+                        -->
+                        <path d="M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24
+                                 5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83
+                                 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5
+                                 1.5-.67 1.5-1.5 1.5zm0-5c-.83
+                                 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5
+                                 1.5S12.83 11.5 12 11.5zm0-5c-.83
+                                 0-1.5-.67-1.5-1.5S11.17 4 12 4s1.5.67 1.5
+                                 1.5S12.83 6.5 12 6.5z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- ── Botón 2: Incidencias viales ── -->
+            <div class="flex flex-col items-center gap-1">
+                <!-- Etiqueta textual del botón -->
+                <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    Incidencias
+                </span>
+
+                <!--
+                    id="btnIncidencia" → UIController._registrarEventoIncidencia() lo escucha.
+                    Color rojo para reflejar urgencia / peligro.
+                -->
+                <button id="btnIncidencia"
+                        class="report-btn bg-red-500 hover:bg-red-600"
+                        aria-label="Reportar incidencia vial en mi ubicación">
+
+                    <!-- Ícono SVG de triángulo de advertencia — símbolo universal de alerta -->
+                    <svg class="w-8 h-8 text-white"
+                         fill="currentColor"
+                         viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <!--
+                            Triángulo de advertencia con símbolo de exclamación:
+                            - Triángulo exterior: M1 21h22L12 2 1 21
+                            - Barra de exclamación: rectángulo y cuadrado inferiores
+                        -->
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                </button>
+            </div>
+
+        </div><!-- /flex botones -->
+    </div><!-- /quickReportMenu -->
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SCRIPTS — al final del <body> para no bloquear el render
+         Orden de carga obligatorio:
+           1. Leaflet.js  → debe estar disponible antes que map.js
+           2. map.js      → usa las clases OOP del proyecto
+         ═══════════════════════════════════════════════════════ -->
+
+    <!-- 1. Librería de mapas interactivos Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- 2. Módulo principal del proyecto (MapController, UIController, PlayaAlertaApp) -->
     <script src="map.js"></script>
+
 </body>
 </html>

@@ -1,0 +1,113 @@
+/* =============================================================
+   ARCHIVO: styles.css
+   PROYECTO: Playa Alerta
+   DESCRIPCIÓN: Hoja de estilos principal de la aplicación.
+                Define la apariencia visual de todos los elementos
+                de la interfaz que no pueden ser cubiertos por
+                las clases utilitarias de Tailwind CSS.
+   AUTOR: Equipo Playa Alerta
+   ÚLTIMA ACTUALIZACIÓN: 2026-11-02
+   ============================================================= */
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 1 — RESET Y BASE DEL DOCUMENTO
+   Garantiza que el mapa ocupe exactamente el 100% de la ventana
+   sin barras de scroll ni márgenes involuntarios.
+   ------------------------------------------------------------- */
+
+html,
+body {
+    margin: 0;          /* Elimina el margen predeterminado del navegador */
+    padding: 0;         /* Elimina el relleno predeterminado del navegador */
+    height: 100%;       /* Ocupa el 100% de la altura de la ventana */
+    width: 100%;        /* Ocupa el 100% del ancho de la ventana */
+    overflow: hidden;   /* Oculta cualquier desbordamiento (evita scroll) */
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 2 — CONTENEDOR DEL MAPA
+   El elemento <main id="map"> se fija a toda la pantalla y queda
+   como capa base sobre la que se superponen los demás paneles.
+   ------------------------------------------------------------- */
+
+#map {
+    position: fixed;    /* Fija el mapa relativo a la ventana del navegador */
+    inset: 0;           /* Shorthand: top/right/bottom/left = 0 (cubre todo) */
+    z-index: 0;         /* Capa más baja; los paneles flotantes van encima */
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 3 — PANEL DE REPORTE RÁPIDO
+   Panel flotante en la esquina inferior derecha que agrupa
+   los botones de reporte. Usa "glassmorphism" (fondo translúcido
+   con desenfoque) para no opacar el mapa subyacente.
+   ------------------------------------------------------------- */
+
+#quickReportMenu {
+    /* Efecto glassmorphism: desenfoca lo que hay detrás del panel */
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px); /* Prefijo para compatibilidad con Safari */
+
+    /* Fondo blanco semitransparente que permite ver el mapa */
+    background: rgba(255, 255, 255, 0.88);
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 4 — BOTONES CIRCULARES DE REPORTE
+   Estilo base compartido por todos los botones del menú rápido
+   (Tráfico, Incidencias, etc.). Cada botón hereda estas reglas
+   y añade su propio color de fondo mediante clases de Tailwind.
+   ------------------------------------------------------------- */
+
+.report-btn {
+    /* Dimensiones fijas — mantienen la forma circular */
+    width: 64px;
+    height: 64px;
+
+    /* Convierte el elemento en un círculo perfecto */
+    border-radius: 50%;
+
+    /* Elimina el borde nativo de los botones HTML */
+    border: none;
+
+    /* Indica al usuario que el elemento es interaccionable */
+    cursor: pointer;
+
+    /* Convierte el botón en contenedor flex para centrar el ícono SVG */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Animación suave al hacer hover o click */
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+    /* Sombra base que da sensación de elevación (material design) */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Estado hover: el botón se agranda ligeramente y refuerza la sombra */
+.report-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Estado active (click): el botón se "hunde" para dar feedback táctil */
+.report-btn:active {
+    transform: scale(0.96);
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 5 — CONTROL DE ZOOM DE LEAFLET
+   Reposiciona el widget nativo de zoom de Leaflet hacia arriba
+   para que no quede oculto detrás del panel de reporte rápido.
+   ------------------------------------------------------------- */
+
+.leaflet-bottom.leaflet-right {
+    /* Sube el control de zoom 160 px desde el borde inferior */
+    bottom: 160px !important; /* !important necesario para sobrescribir los estilos de Leaflet */
+}
