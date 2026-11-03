@@ -262,3 +262,75 @@ body {
     transform: scale(1.05);
 }
 
+
+/* -------------------------------------------------------------
+   SECCIÓN 9 — MODAL DE PERFIL DE USUARIO
+   Animaciones de apertura/cierre y scrollbars personalizados
+   ------------------------------------------------------------- */
+
+/* Estado inicial: invisible y desplazado */
+#userProfileModal > div:last-child {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+/* Estado visible: opaco y centrado */
+#userProfileModal.modal-visible > div:last-child {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* Overlay suave */
+#perfilOverlay {
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+
+#userProfileModal.modal-visible #perfilOverlay {
+    opacity: 1;
+}
+
+/* Scrollbar sutil para el historial de reportes */
+#historialReportesLista::-webkit-scrollbar {
+    width: 5px;
+}
+#historialReportesLista::-webkit-scrollbar-track {
+    background: transparent;
+}
+#historialReportesLista::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 999px;
+}
+#historialReportesLista::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 10 — ADAPTACIONES MÓVILES (RESPONSIVE)
+   Siguiendo la referencia de visualización en smartphones
+   ------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+    /* En dispositivos móviles, reubica el control de zoom hacia arriba
+       para que el menú de reporte rápido inferior tenga espacio limpio */
+    .leaflet-bottom.leaflet-right {
+        bottom: auto !important;
+        top: 76px !important;
+        right: 14px !important;
+    }
+
+    /* Botones de reporte rápido con escala optimizada para pantallas táctiles */
+    .report-btn {
+        width: 58px;
+        height: 58px;
+    }
+
+    .report-btn svg {
+        width: 26px;
+        height: 26px;
+    }
+}
+
+

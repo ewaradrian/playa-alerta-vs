@@ -59,20 +59,20 @@
          Usa "glassmorphism": fondo translúcido + blur de Tailwind.
          z-index: 20 → encima del mapa pero debajo de modales
          ═══════════════════════════════════════════════════════ -->
-    <div class="absolute top-4 left-4 z-20
+    <div class="absolute top-3 left-3 sm:top-4 sm:left-4 z-20
                 flex items-center gap-2
-                bg-white/85 backdrop-blur-sm
-                rounded-2xl shadow-lg px-3 py-2"
+                bg-white/90 backdrop-blur-sm
+                rounded-2xl shadow-lg px-2.5 py-1.5 sm:px-3 sm:py-2 transition-all"
          role="banner"
          aria-label="Logotipo Playa Alerta">
 
         <!-- Imagen del logo circular -->
         <img src="logo.png"
              alt="Logo de Playa Alerta"
-             class="h-12 w-12 rounded-full object-cover shadow-md">
+             class="h-9 w-9 sm:h-12 sm:w-12 rounded-full object-cover shadow-md">
 
         <!-- Nombre de la marca en dos líneas con color institucional -->
-        <span class="text-[#E59837] font-extrabold text-lg tracking-widest uppercase leading-tight">
+        <span class="text-[#E59837] font-extrabold text-sm sm:text-lg tracking-widest uppercase leading-tight">
             Playa<br>Alerta
         </span>
     </div>
@@ -83,27 +83,22 @@
          Esquina superior derecha, flotando sobre el mapa.
          Al hacer click, UIController abrirá el panel de perfil.
          ═══════════════════════════════════════════════════════ -->
-    <div class="absolute top-4 right-4 z-20">
+    <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20">
 
         <!-- id="btnUsuario" → UIController lo busca por este ID -->
         <button id="btnUsuario"
-                class="w-14 h-14 rounded-full
+                class="w-11 h-11 sm:w-14 sm:h-14 rounded-full
                        bg-[#003366] hover:bg-[#002244]
                        flex items-center justify-center
                        shadow-lg active:scale-95 transition-all
-                       focus:outline-none"
+                       focus:outline-none ring-2 ring-white/50"
                 aria-label="Abrir perfil de usuario">
 
-            <!-- Ícono SVG de silueta de persona (no depende de fuentes externas) -->
-            <svg class="w-7 h-7 text-white"
+            <!-- Ícono SVG de silueta de persona -->
+            <svg class="w-6 h-6 sm:w-7 sm:h-7 text-white"
                  fill="currentColor"
                  viewBox="0 0 24 24"
                  aria-hidden="true">
-                <!--
-                    Path describe la silueta de una persona:
-                    - Círculo superior = cabeza
-                    - Forma inferior   = cuerpo / hombros
-                -->
                 <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4
                          7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2
                          0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
@@ -114,13 +109,13 @@
 
     <!-- ═══════════════════════════════════════════════════════
          SECCIÓN 4 — MENÚ DE REPORTE RÁPIDO
-         Esquina inferior derecha. Panel con efecto glassmorphism
-         que agrupa los botones de reporte disponibles.
-         Los estilos de #quickReportMenu viven en styles.css.
+         Adaptado para móvil y escritorio (según referencia):
+           - Móvil: centrado horizontalmente en la parte inferior
+           - Escritorio: ubicado en esquina inferior derecha
          ═══════════════════════════════════════════════════════ -->
     <div id="quickReportMenu"
-         class="absolute bottom-4 right-4 z-20
-                rounded-3xl shadow-2xl px-5 pt-3 pb-4"
+         class="absolute bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0 z-20
+                rounded-3xl shadow-2xl px-5 pt-3 pb-4 max-w-[calc(100vw-2rem)] transition-all"
          role="region"
          aria-label="Menú de reporte rápido">
 
@@ -207,11 +202,11 @@
     <!-- ═══════════════════════════════════════════════════════
          SECCIÓN 5 — MODAL DE REGISTRO DE REPORTE
          Se muestra encima de todo cuando el usuario hace click en
-         un botón del menú de reporte rápido.
+         un botón del menú de reporte rápido o en un punto del mapa.
          z-index: 50 → encima del mapa y de los paneles flotantes
          ═══════════════════════════════════════════════════════ -->
     <div id="reportModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center"
+         class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
          role="dialog"
          aria-modal="true"
          aria-labelledby="modalTitle">
@@ -220,20 +215,20 @@
         <div id="modalOverlay"
              class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
-        <!-- Tarjeta del formulario -->
-        <div class="relative w-full max-w-md mx-4
+        <!-- Tarjeta del formulario (con scroll en pantallas móviles pequeñas) -->
+        <div class="relative w-full max-w-md mx-auto
                     bg-white rounded-3xl shadow-2xl
-                    overflow-hidden flex flex-col">
+                    overflow-hidden flex flex-col max-h-[92vh] z-10">
 
             <!-- ── Cabecera coloreada ── -->
             <div id="modalHeader"
-                 class="px-6 pt-5 pb-4 flex items-center justify-between transition-colors">
+                 class="px-5 sm:px-6 pt-5 pb-4 flex items-center justify-between transition-colors flex-shrink-0">
 
                 <!-- Tipo de reporte (se actualiza dinámicamente) -->
                 <div class="flex items-center gap-3">
                     <!-- Ícono del tipo de reporte -->
                     <div id="modalIcon"
-                         class="w-11 h-11 rounded-full flex items-center justify-center shadow-md">
+                         class="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
                     </div>
                     <!-- Título del tipo de reporte -->
                     <div>
@@ -248,7 +243,7 @@
                             </span>
                         </div>
                         <h2 id="modalTitle"
-                            class="text-lg font-extrabold text-white leading-tight">
+                            class="text-base sm:text-lg font-extrabold text-white leading-tight">
                             Incidencia Vial
                         </h2>
                     </div>
@@ -269,7 +264,7 @@
             </div>
 
             <!-- ── Selector de categoría (pills rápidos) ── -->
-            <div class="px-6 pt-3 pb-1 flex gap-2">
+            <div class="px-5 sm:px-6 pt-3 pb-1 flex gap-2 flex-shrink-0">
                 <button type="button"
                         id="tabTipoIncidencia"
                         class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider
@@ -288,9 +283,9 @@
                 </button>
             </div>
 
-            <!-- ── Cuerpo del formulario ── -->
+            <!-- ── Cuerpo del formulario (con scroll interno) ── -->
             <form id="reportForm"
-                  class="px-6 pb-6 pt-2 flex flex-col gap-3"
+                  class="px-5 sm:px-6 pb-5 sm:pb-6 pt-2 flex flex-col gap-3 overflow-y-auto"
                   novalidate>
 
                 <!-- Campo: Título del reporte -->
@@ -319,10 +314,10 @@
                     </label>
                     <textarea id="inputDescripcion"
                               placeholder="Describe brevemente lo que está pasando…"
-                              rows="4"
+                              rows="3"
                               maxlength="300"
                               class="w-full rounded-xl border border-gray-200
-                                     bg-gray-50 px-4 py-2.5 text-sm text-gray-800
+                                     bg-gray-50 px-4 py-2 text-sm text-gray-800
                                      placeholder-gray-400 resize-none
                                      focus:outline-none focus:ring-2 focus:ring-offset-1
                                      transition"></textarea>
@@ -339,11 +334,11 @@
                            id="adjuntosLabel"
                            class="flex flex-col items-center justify-center gap-2
                                   rounded-xl border-2 border-dashed border-gray-300
-                                  bg-gray-50 py-4 cursor-pointer
+                                  bg-gray-50 py-3 cursor-pointer
                                   hover:border-gray-400 hover:bg-gray-100 transition">
 
                         <!-- Ícono de cámara / clip -->
-                        <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor"
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor"
                              stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round"
                                   d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0
@@ -412,6 +407,156 @@
 
         </div><!-- /tarjeta -->
     </div><!-- /reportModal -->
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECCIÓN 6 — MODAL DE PERFIL DE USUARIO
+         Se despliega al hacer click en el icono de usuario (btnUsuario).
+         Sigue la estructura de la referencia:
+           - USER ICON + USERNAME
+           - USER STATUS BAR
+           - REPORT HISTORY (lista dinámica de reportes)
+         Adaptado completamente a pantallas de escritorio y móviles.
+         ═══════════════════════════════════════════════════════ -->
+    <div id="userProfileModal"
+         class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="perfilTitulo">
+
+        <!-- Fondo oscuro semitransparente (overlay) -->
+        <div id="perfilOverlay"
+             class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+        <!-- Tarjeta del perfil -->
+        <div class="relative w-full max-w-md mx-auto
+                    bg-white rounded-3xl shadow-2xl
+                    overflow-hidden flex flex-col max-h-[90vh] z-10">
+
+            <!-- ── Cabecera del Perfil con Botón Cerrar ── -->
+            <div class="px-5 sm:px-6 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#003366]"></span>
+                    <h2 id="perfilTitulo" class="text-xs font-black text-gray-500 uppercase tracking-widest">
+                        Perfil de Usuario
+                    </h2>
+                </div>
+                <button id="btnCerrarPerfil"
+                        class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600
+                               flex items-center justify-center transition-colors focus:outline-none"
+                        aria-label="Cerrar perfil">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- ── Contenido scrollable del perfil ── -->
+            <div class="px-5 sm:px-6 py-4 flex flex-col gap-4 overflow-y-auto">
+
+                <!-- 1. BLOQUE: USER ICON + USERNAME (como en la referencia) -->
+                <div class="flex items-center gap-3.5 bg-gray-50 p-3.5 sm:p-4 rounded-2xl border border-gray-100">
+                    <!-- USER ICON circular -->
+                    <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#003366] text-white flex items-center justify-center shadow-md flex-shrink-0">
+                        <svg class="w-7 h-7 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                        </svg>
+                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"></span>
+                    </div>
+
+                    <!-- USERNAME block -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <h3 id="perfilNombre" class="font-black text-gray-800 text-base sm:text-lg leading-tight truncate">
+                                Ciudadano Playa
+                            </h3>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#003366] uppercase">
+                                Activo
+                            </span>
+                        </div>
+                        <p id="perfilCorreo" class="text-xs text-gray-500 truncate mt-0.5">
+                            ciudadano@playa.gob.mx
+                        </p>
+                        <p class="text-[11px] font-semibold text-gray-400">
+                            Rol: Ciudadano • Playa del Carmen
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 2. BLOQUE: USER STATUS BAR (barra de estado del usuario) -->
+                <div class="flex flex-col gap-1.5">
+                    <span class="text-[11px] font-black text-gray-500 uppercase tracking-widest">
+                        User Status Bar
+                    </span>
+
+                    <div class="w-full bg-gray-50 rounded-2xl p-3 border border-gray-200 flex flex-col gap-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span class="font-bold text-gray-700">Estado de Cuenta</span>
+                            </div>
+                            <span class="font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md text-[11px]">
+                                ● Activa / Confiable
+                            </span>
+                        </div>
+
+                        <!-- Barra visual de reputación cívica -->
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                                <div class="bg-[#003366] h-2 rounded-full transition-all" style="width: 85%"></div>
+                            </div>
+                            <span class="text-xs font-black text-gray-700">85% Nivel 1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. BLOQUE: REPORT HISTORY (historial de reportes del usuario) -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] font-black text-gray-500 uppercase tracking-widest">
+                                Report History
+                            </span>
+                            <span id="historialContador" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-200 text-gray-700">
+                                0
+                            </span>
+                        </div>
+                        <button id="btnRecargarHistorial" class="text-xs font-bold text-[#003366] hover:underline flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Actualizar
+                        </button>
+                    </div>
+
+                    <!-- Contenedor scrollable de la lista de reportes -->
+                    <div id="historialReportesLista" class="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
+                        <!-- Spinner de carga inicial -->
+                        <div class="py-8 flex flex-col items-center justify-center text-gray-400 gap-2">
+                            <svg class="w-6 h-6 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                            </svg>
+                            <span class="text-xs font-medium">Cargando reportes...</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /contenido scrollable -->
+
+            <!-- ── Footer del modal ── -->
+            <div class="px-5 sm:px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
+                <span class="text-[11px] text-gray-400 font-semibold">
+                    Playa Alerta • 2026
+                </span>
+                <button id="btnCerrarPerfilSecundario"
+                        class="px-4 py-1.5 rounded-xl text-xs font-bold text-gray-600 bg-gray-200 hover:bg-gray-300 transition-colors">
+                    Cerrar
+                </button>
+            </div>
+
+        </div><!-- /tarjeta perfil -->
+    </div><!-- /userProfileModal -->
 
 
     <!-- ═══════════════════════════════════════════════════════

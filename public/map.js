@@ -248,6 +248,15 @@ class UIController {
         this.tabTipoIncidencia  = document.getElementById('tabTipoIncidencia');
         this.tabTipoTrafico     = document.getElementById('tabTipoTrafico');
 
+        /* Elementos del modal de perfil de usuario */
+        this.userProfileModal         = document.getElementById('userProfileModal');
+        this.perfilOverlay            = document.getElementById('perfilOverlay');
+        this.btnCerrarPerfil          = document.getElementById('btnCerrarPerfil');
+        this.btnCerrarPerfilSecundario= document.getElementById('btnCerrarPerfilSecundario');
+        this.historialReportesLista   = document.getElementById('historialReportesLista');
+        this.historialContador        = document.getElementById('historialContador');
+        this.btnRecargarHistorial     = document.getElementById('btnRecargarHistorial');
+
         /* Campos del formulario */
         this.reportForm         = document.getElementById('reportForm');
         this.inputTitulo        = document.getElementById('inputTitulo');
@@ -295,6 +304,7 @@ class UIController {
      */
     inicializar() {
         this._registrarEventoUsuario();
+        this._registrarEventosPerfil();
         this._registrarEventoTrafico();
         this._registrarEventoIncidencia();
         this._registrarEventoClickMapa();
@@ -329,13 +339,183 @@ class UIController {
 
     /**
      * _registrarEventoUsuario() [privado]
+     * Al hacer click en el avatar, despliega el panel de perfil de usuario.
      */
     _registrarEventoUsuario() {
         if (!this.btnUsuario) return;
 
         this.btnUsuario.addEventListener('click', () => {
-            console.log('[UIController] Botón de usuario presionado.');
-            alert('Perfil de usuario — próximamente disponible.');
+            console.log('[UIController] Botón de usuario presionado. Abriendo perfil...');
+            this._abrirPerfil();
+        });
+    }
+
+    /**
+     * _registrarEventosPerfil() [privado]
+     * Listeners para cerrar o actualizar el modal del perfil.
+     */
+    _registrarEventosPerfil() {
+        if (this.btnCerrarPerfil) {
+            this.btnCerrarPerfil.addEventListener('click', () => this._cerrarPerfil());
+        }
+        if (this.btnCerrarPerfilSecundario) {
+            this.btnCerrarPerfilSecundario.addEventListener('click', () => this._cerrarPerfil());
+        }
+        if (this.perfilOverlay) {
+            this.perfilOverlay.addEventListener('click', () => this._cerrarPerfil());
+        }
+        if (this.btnRecargarHistorial) {
+            this.btnRecargarHistorial.addEventListener('click', () => this._cargarHistorialReportes());
+        }
+
+        /* Cerrar con Escape */
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.userProfileModal && !this.userProfileModal.classList.contains('hidden')) {
+                this._cerrarPerfil();
+            }
+        });
+    }
+
+    /**
+     * _abrirPerfil() [privado]
+     * Muestra el modal de perfil con animación y carga el historial de reportes.
+     */
+    _abrirPerfil() {
+        if (!this.userProfileModal) return;
+
+        this.userProfileModal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            this.userProfileModal.classList.add('modal-visible');
+        });
+
+        this._cargarHistorialReportes();
+    }
+
+    /**
+     * _cerrarPerfil() [privado]
+     */
+    _cerrarPerfil() {
+        if (!this.userProfileModal) return;
+
+        this.userProfileModal.classList.remove('modal-visible');
+        setTimeout(() => {
+            this.userProfileModal.classList.add('hidden');
+        }, 200);
+
+        console.log('[UIController] Perfil de usuario cerrado.');
+    }
+
+    /**
+     * _cargarHistorialReportes() [privado]
+     * Consulta los reportes en la base de datos para renderizarlos en la lista de REPORT HISTORY.
+     */
+    async _cargarHistorialReportes() {
+        if (!this.historialReportesLista) return;
+
+        this.historialReportesLista.innerHTML = `
+            <div class="py-6 flex flex-col items-center justify-center text-gray-400 gap-2">
+                <svg class="w-6 h-6 animate-spin text-[#003366]" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span class="text-xs font-semibold text-gray-500">Cargando historial de reportes...</span>
+            </div>
+        `;
+
+        try {
+            const res = await fetch('/api/reportes');
+            const data = await res.json();
+
+            if (!data.ok || !Array.isArray(data.reportes) || data.reportes.length === 0) {
+                if (this.historialContador) this.historialContador.textContent = '0';
+                this.historialReportesLista.innerHTML = `
+                    <div class="p-6 text-center text-gray-400 flex flex-col items-center gap-2 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <svg class="w-8 h-8 opacity-40 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p class="text-xs font-bold text-gray-600">No hay reportes registrados aún</p>
+                        <p class="text-[11px] text-gray-400">Haz click en el mapa para reportar una incidencia o tráfico.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (this.historialContador) {
+                this.historialContador.textContent = data.reportes.length;
+            }
+
+            this.historialReportesLista.innerHTML = '';
+
+            data.reportes.forEach((rep) => {
+                const esTrafico = (rep.categoria === 'Tráfico' || rep.tipo === 'trafico');
+                const esActivo  = (rep.estado === 'activo' || rep.estado === 'Y');
+
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-gray-50 hover:bg-gray-100/90 rounded-2xl border border-gray-100 transition-all flex items-start justify-between gap-2.5';
+
+                item.innerHTML = `
+                    <div class="flex items-start gap-2.5 min-w-0">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm ${esTrafico ? 'bg-amber-500' : 'bg-red-500'}">
+                            ${esTrafico
+                                ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24 5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11.5 12 11.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 4 12 4s1.5.67 1.5 1.5S12.83 6.5 12 6.5z"/></svg>'
+                                : '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>'
+                            }
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <h4 class="font-extrabold text-xs text-gray-800 truncate">
+                                    ${rep.titulo || 'Sin título'}
+                                </h4>
+                                <span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">
+                                    ${esActivo ? 'Activo' : 'Resuelto'}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-gray-500 line-clamp-1 mt-0.5">
+                                ${rep.descripcion || 'Sin descripción detallada'}
+                            </p>
+                            <span class="text-[10px] text-gray-400 font-mono">
+                                📍 ${Number(rep.latitud).toFixed(4)}, ${Number(rep.longitud).toFixed(4)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            class="btn-ver-mapa flex-shrink-0 px-2.5 py-1 text-[11px] font-extrabold text-[#003366] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                            title="Centrar en el mapa">
+                        Ver
+                    </button>
+                `;
+
+                const btnVer = item.querySelector('.btn-ver-mapa');
+                if (btnVer) {
+                    btnVer.addEventListener('click', () => {
+                        this._centrarEnReporte(parseFloat(rep.latitud), parseFloat(rep.longitud));
+                    });
+                }
+
+                this.historialReportesLista.appendChild(item);
+            });
+
+        } catch (error) {
+            console.error('[UIController] Error al cargar historial:', error);
+            this.historialReportesLista.innerHTML = `
+                <div class="p-4 text-center text-red-500 text-xs">
+                    Error al cargar los reportes desde la base de datos.
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * _centrarEnReporte(lat, lng) [privado]
+     * Cierra el modal de perfil y vuela el mapa suavemente al punto del reporte.
+     */
+    _centrarEnReporte(lat, lng) {
+        if (isNaN(lat) || isNaN(lng)) return;
+        this._cerrarPerfil();
+        this.mapa.flyTo([lat, lng], 16, {
+            animate: true,
+            duration: 1.2
         });
     }
 
