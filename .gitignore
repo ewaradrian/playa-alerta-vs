@@ -1,0 +1,17 @@
+# =============================================================
+# .gitignore — Playa Alerta
+# =============================================================
+
+# ── Variables de entorno (contienen contraseñas y secretos) ──
+.env
+
+# ── Dependencias de Node.js (se reinstalan con npm install) ──
+node_modules/
+
+# ── Archivos de sistema ──
+.DS_Store
+Thumbs.db
+
+# ── Logs ──
+*.log
+npm-debug.log*

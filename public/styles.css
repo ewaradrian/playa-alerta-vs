@@ -102,7 +102,37 @@ body {
 
 
 /* -------------------------------------------------------------
-   SECCIÓN 5 — CONTROL DE ZOOM DE LEAFLET
+   SECCIÓN 5 — MODAL DE REGISTRO DE REPORTE
+   Animación de entrada/salida del modal. La clase .modal-visible
+   se añade/quita dinámicamente desde UIController.
+   ------------------------------------------------------------- */
+
+/* Estado inicial: invisible y desplazado ligeramente hacia abajo */
+#reportModal > div:last-child {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+/* Estado visible: opaco y en su posición correcta */
+#reportModal.modal-visible > div:last-child {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* Overlay: también con transición suave */
+#modalOverlay {
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+
+#reportModal.modal-visible #modalOverlay {
+    opacity: 1;
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 6 — CONTROL DE ZOOM DE LEAFLET
    Reposiciona el widget nativo de zoom de Leaflet hacia arriba
    para que no quede oculto detrás del panel de reporte rápido.
    ------------------------------------------------------------- */
