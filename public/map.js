@@ -2,15 +2,13 @@
  * =============================================================
  * ARCHIVO: map.js
  * PROYECTO: Playa Alerta
- * DESCRIPCIÓN: Módulo principal de la aplicación. Implementa
- *              una arquitectura orientada a objetos (OOP) con
- *              tres clases bien definidas:
+ * DESCRIPCIÓN: Módulo principal de la aplicación con arquitectura OOP:
  *
- *   ┌─────────────────────────────────────────┐
- *   │  MapController   → gestiona el mapa     │
- *   │  UIController    → gestiona la interfaz │
- *   │  PlayaAlertaApp  → orquesta la app      │
- *   └─────────────────────────────────────────┘
+ *   ┌────────────────────────────────────────────────────────┐
+ *   │  MapController   → gestiona el mapa Leaflet y marcadores│
+ *   │  UIController    → gestiona modales, formularios y clicks│
+ *   │  PlayaAlertaApp  → orquesta el arranque de la app       │
+ *   └────────────────────────────────────────────────────────┘
  *
  * DEPENDENCIAS: Leaflet.js (debe cargarse antes que este script)
  * AUTOR: Equipo Playa Alerta
@@ -18,110 +16,199 @@
  * =============================================================
  */
 
+'use strict';
+
 
 /* =============================================================
    CLASE 1 — MapController
    Responsabilidad única: todo lo relacionado con el mapa
-   interactivo (Leaflet). Encapsula la configuración geográfica,
-   la inicialización del mapa y la capa de teselas (tiles).
+   interactivo (Leaflet), capas de teselas, punto temporal de click
+   ("MAP POINT") y marcadores persistentes de reportes.
    ============================================================= */
 
 class MapController {
 
     /**
      * Constructor — define la configuración inicial del mapa.
-     * Se ejecuta automáticamente al hacer "new MapController()".
-     *
      * @param {string} elementId - ID del elemento HTML que contendrá el mapa.
      */
     constructor(elementId) {
-
-        /* ID del elemento <main> donde Leaflet renderizará el mapa */
         this.elementId = elementId;
 
         /* Coordenadas [latitud, longitud] del centro de Playa del Carmen */
         this.centroPlaya = [20.6296, -87.0739];
 
-        /* Nivel de zoom inicial al cargar la página */
+        /* Zoom inicial y límites */
         this.zoomInicial = 14;
+        this.minZoom     = 12;
+        this.maxZoom     = 18;
 
-        /* Límites de zoom: el usuario no puede alejarse ni acercarse más de estos valores */
-        this.minZoom = 12;
-        this.maxZoom = 18;
-
-        /**
-         * Límites geográficos del mapa (bounding box de Quintana Roo).
-         * El usuario no podrá arrastrar el mapa fuera de esta área.
-         * Formato: L.latLngBounds([sur-oeste], [norte-este])
-         */
+        /* Límites geográficos (Quintana Roo) */
         this.limiteGeografico = L.latLngBounds(
-            [20.3000, -87.4000], /* Esquina sur-oeste */
-            [20.8000, -86.8000]  /* Esquina norte-este */
+            [20.3000, -87.4000],
+            [20.8000, -86.8000]
         );
 
-        /* URL de la capa de teselas (OpenStreetMap) con marcadores de posición {s}, {z}, {x}, {y} */
         this.urlTeselas = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-
-        /* Texto de atribución requerido por la licencia de OpenStreetMap */
         this.atribucion = '&copy; OpenStreetMap contributors — Playa Alerta';
 
-        /* Referencia al objeto de mapa de Leaflet (se asigna en inicializar()) */
+        /* Instancia del mapa Leaflet */
         this.mapa = null;
+
+        /* Marcador temporal para el punto seleccionado ("MAP POINT") */
+        this.marcadorPunto = null;
+
+        /* Grupo de capas para los reportes confirmados en el mapa */
+        this.capaReportes = null;
     }
 
     /**
      * inicializar()
-     * Crea e instancia el mapa de Leaflet en el DOM con toda
-     * la configuración definida en el constructor.
-     *
-     * @returns {L.Map} - La instancia del mapa para encadenamiento.
+     * Instancia el mapa de Leaflet en el DOM y carga capas y reportes existentes.
+     * @returns {L.Map} - La instancia de Leaflet.
      */
     inicializar() {
-
-        /* Crea el mapa en el elemento HTML indicado por this.elementId */
         this.mapa = L.map(this.elementId, {
-            center:             this.centroPlaya,       /* Centro inicial del mapa */
-            zoom:               this.zoomInicial,       /* Zoom inicial */
-            minZoom:            this.minZoom,           /* Zoom mínimo permitido */
-            maxZoom:            this.maxZoom,           /* Zoom máximo permitido */
-            maxBounds:          this.limiteGeografico,  /* Área geográfica permitida */
-            maxBoundsViscosity: 1.0,                    /* 1.0 = el mapa rebota sin salirse del área */
-            zoomControl:        false                   /* Desactiva el zoom nativo (lo añadimos manualmente) */
+            center:             this.centroPlaya,
+            zoom:               this.zoomInicial,
+            minZoom:            this.minZoom,
+            maxZoom:            this.maxZoom,
+            maxBounds:          this.limiteGeografico,
+            maxBoundsViscosity: 1.0,
+            zoomControl:        false
         });
 
-        /* Añade el control de zoom en la esquina inferior derecha */
+        /* Control de zoom en esquina inferior derecha */
         L.control.zoom({ position: 'bottomright' }).addTo(this.mapa);
 
-        /* Añade la capa de teselas (el mapa visual de OpenStreetMap) */
+        /* Capa base OpenStreetMap */
         this._agregarCapaTeselas();
 
-        console.log('[MapController] Mapa inicializado correctamente.');
+        /* Capa para reportes en el mapa */
+        this.capaReportes = L.layerGroup().addTo(this.mapa);
 
-        /* Retorna la instancia del mapa por si se necesita encadenar métodos */
+        /* Carga los reportes previamente guardados desde la BD */
+        this.cargarReportesExistentes();
+
+        console.log('[MapController] Mapa y capas inicializados correctamente.');
         return this.mapa;
     }
 
     /**
-     * _agregarCapaTeselas()  [método privado — prefijo _ por convención]
-     * Descarga y renderiza los tiles (cuadros) del mapa base.
-     * updateWhenIdle y keepBuffer mejoran el rendimiento en conexiones lentas.
+     * _agregarCapaTeselas() [privado]
      */
     _agregarCapaTeselas() {
         L.tileLayer(this.urlTeselas, {
             attribution:    this.atribucion,
-            updateWhenIdle: true, /* Actualiza tiles solo cuando el mapa deja de moverse */
-            keepBuffer:     2     /* Guarda en caché 2 tiles extra alrededor de la vista actual */
+            updateWhenIdle: true,
+            keepBuffer:     2
         }).addTo(this.mapa);
     }
 
     /**
-     * getMapa()
-     * Devuelve la instancia del mapa de Leaflet.
-     * Útil para que otros módulos interactúen con el mapa
-     * sin acceder directamente a la propiedad interna.
+     * colocarPunto(latlng)
+     * Coloca o mueve el marcador animado de selección ("MAP POINT")
+     * en las coordenadas indicadas al hacer click en el mapa.
      *
-     * @returns {L.Map} - Instancia de Leaflet.
+     * @param {L.LatLng} latlng - Coordenadas del click.
+     * @returns {L.Marker}      - Instancia del marcador creado.
      */
+    colocarPunto(latlng) {
+        this.removerPunto();
+
+        const puntoIcon = L.divIcon({
+            className: 'map-point-icon',
+            html: '<div class="map-point-pulse"></div><div class="map-point-center"></div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+        });
+
+        this.marcadorPunto = L.marker(latlng, {
+            icon: puntoIcon,
+            zIndexOffset: 1000
+        }).addTo(this.mapa);
+
+        return this.marcadorPunto;
+    }
+
+    /**
+     * removerPunto()
+     * Elimina el marcador temporal de selección si existe.
+     */
+    removerPunto() {
+        if (this.marcadorPunto) {
+            this.mapa.removeLayer(this.marcadorPunto);
+            this.marcadorPunto = null;
+        }
+    }
+
+    /**
+     * agregarMarcadorConfirmado(reporte)
+     * Renderiza un marcador definitivo para un reporte guardado en BD.
+     *
+     * @param {Object} reporte - Datos del reporte {latitud, longitud, tipo, titulo, descripcion, estado}
+     */
+    agregarMarcadorConfirmado(reporte) {
+        const lat = parseFloat(reporte.latitud);
+        const lng = parseFloat(reporte.longitud);
+
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const esTrafico = (reporte.tipo === 'trafico' || reporte.categoria === 'Tráfico');
+        const colorBg   = esTrafico ? '#F59E0B' : '#EF4444'; /* amber-500 | red-500 */
+        const iconoSvg  = esTrafico
+            ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24 5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11.5 12 11.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 4 12 4s1.5.67 1.5 1.5S12.83 6.5 12 6.5z"/></svg>'
+            : '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+
+        const customIcon = L.divIcon({
+            className: 'report-confirmed-icon',
+            html: `<div style="background-color:${colorBg}; width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center;">${iconoSvg}</div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        const estadoBadge = reporte.estado === 'activo'
+            ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:999px; font-weight:700;">Activo</span>'
+            : '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:999px; font-weight:700;">Resuelto</span>';
+
+        const popupHtml = `
+            <div style="font-family:system-ui,sans-serif; min-width:180px; max-width:240px; padding:4px;">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; font-weight:700; margin-bottom:4px;">
+                    ${esTrafico ? 'Tráfico' : 'Incidencia Vial'} • ${estadoBadge}
+                </div>
+                <div style="font-weight:800; font-size:14px; color:#111827; margin-bottom:4px;">
+                    ${reporte.titulo || 'Sin título'}
+                </div>
+                <div style="font-size:12px; color:#4b5563; line-height:1.4;">
+                    ${reporte.descripcion || 'Sin descripción'}
+                </div>
+            </div>
+        `;
+
+        const marker = L.marker([lat, lng], { icon: customIcon })
+            .bindPopup(popupHtml);
+
+        this.capaReportes.addLayer(marker);
+        return marker;
+    }
+
+    /**
+     * cargarReportesExistentes()
+     * Consulta al backend GET /api/reportes para mostrar los puntos registrados.
+     */
+    async cargarReportesExistentes() {
+        try {
+            const res = await fetch('/api/reportes');
+            const data = await res.json();
+            if (data.ok && Array.isArray(data.reportes)) {
+                data.reportes.forEach((r) => this.agregarMarcadorConfirmado(r));
+                console.log(`[MapController] ${data.reportes.length} reportes cargados en el mapa.`);
+            }
+        } catch (error) {
+            console.warn('[MapController] No se pudieron cargar los reportes previos:', error.message);
+        }
+    }
+
     getMapa() {
         return this.mapa;
     }
@@ -130,55 +217,56 @@ class MapController {
 
 /* =============================================================
    CLASE 2 — UIController
-   Responsabilidad única: gestionar toda la lógica de interfaz
-   de usuario (botones, paneles, eventos del DOM).
-   No conoce ni manipula el mapa directamente.
+   Responsabilidad: gestionar eventos del usuario, formularios,
+   click en el mapa para registrar reportes, botones de STATUS
+   (Y / N) y comunicación con la API.
    ============================================================= */
 
 class UIController {
 
     /**
-     * Constructor — recibe la instancia del mapa para poder
-     * disparar acciones cartográficas desde la UI si es necesario.
-     *
-     * @param {L.Map} mapa - Instancia del mapa de Leaflet.
+     * @param {L.Map} mapa                  - Instancia de Leaflet.
+     * @param {MapController} mapController - Controlador del mapa para colocar/quitar puntos.
      */
-    constructor(mapa) {
+    constructor(mapa, mapController) {
+        this.mapa          = mapa;
+        this.mapController = mapController;
 
-        /* Guarda la referencia al mapa (puede usarse para centrar, añadir marcadores, etc.) */
-        this.mapa = mapa;
-
-        /* Referencias cacheadas a los elementos del DOM — botones principales */
+        /* Botones de navegación / reporte rápido */
         this.btnUsuario    = document.getElementById('btnUsuario');
         this.btnTrafico    = document.getElementById('btnTrafico');
         this.btnIncidencia = document.getElementById('btnIncidencia');
 
-        /* Referencias al modal de registro de reporte */
-        this.reportModal     = document.getElementById('reportModal');
-        this.modalOverlay    = document.getElementById('modalOverlay');
-        this.btnCerrarModal  = document.getElementById('btnCerrarModal');
-        this.modalHeader     = document.getElementById('modalHeader');
-        this.modalIcon       = document.getElementById('modalIcon');
-        this.modalTitle      = document.getElementById('modalTitle');
-        this.reportForm      = document.getElementById('reportForm');
-        this.inputTitulo     = document.getElementById('inputTitulo');
-        this.inputDescripcion= document.getElementById('inputDescripcion');
-        this.inputAdjuntos   = document.getElementById('inputAdjuntos');
-        this.adjuntosTexto   = document.getElementById('adjuntosTexto');
-        this.btnEnviarReporte= document.getElementById('btnEnviarReporte');
+        /* Elementos del modal de reporte */
+        this.reportModal        = document.getElementById('reportModal');
+        this.modalOverlay       = document.getElementById('modalOverlay');
+        this.btnCerrarModal     = document.getElementById('btnCerrarModal');
+        this.modalHeader        = document.getElementById('modalHeader');
+        this.modalIcon          = document.getElementById('modalIcon');
+        this.modalTitle         = document.getElementById('modalTitle');
+        this.modalCoordsBadge   = document.getElementById('modalCoordsBadge');
+        this.tabTipoIncidencia  = document.getElementById('tabTipoIncidencia');
+        this.tabTipoTrafico     = document.getElementById('tabTipoTrafico');
 
-        /**
-         * Configuración visual de cada tipo de reporte.
-         * Permite escalar fácilmente añadiendo más tipos sin tocar
-         * la lógica del modal.
-         */
+        /* Campos del formulario */
+        this.reportForm         = document.getElementById('reportForm');
+        this.inputTitulo        = document.getElementById('inputTitulo');
+        this.inputDescripcion   = document.getElementById('inputDescripcion');
+        this.inputAdjuntos      = document.getElementById('inputAdjuntos');
+        this.adjuntosTexto      = document.getElementById('adjuntosTexto');
+        this.btnStatusY         = document.getElementById('btnStatusY');
+        this.btnStatusN         = document.getElementById('btnStatusN');
+        this.inputStatus        = document.getElementById('inputStatus');
+        this.btnEnviarReporte   = document.getElementById('btnEnviarReporte');
+
+        /* Configuración visual por categoría */
         this.tiposReporte = {
             trafico: {
                 label:    'Tráfico',
-                color:    '#D97706',          /* amber-600  */
-                colorBtn: '#F59E0B',          /* amber-400  */
+                color:    '#D97706', /* amber-600 */
+                colorBtn: '#F59E0B', /* amber-400 */
                 ring:     'focus:ring-amber-400',
-                svgPath:  /* semáforo */
+                svgPath:
                     'M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24 ' +
                     '5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 ' +
                     '1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-5c-.83 ' +
@@ -187,211 +275,288 @@ class UIController {
             },
             incidencia: {
                 label:    'Incidencia Vial',
-                color:    '#DC2626',          /* red-600    */
-                colorBtn: '#EF4444',          /* red-500    */
+                color:    '#DC2626', /* red-600 */
+                colorBtn: '#EF4444', /* red-500 */
                 ring:     'focus:ring-red-400',
-                svgPath:  /* triángulo alerta */
+                svgPath:
                     'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'
             }
         };
 
-        /* Tipo de reporte activo (se asigna al abrir el modal) */
-        this._tipoActivo = null;
+        /* Estado interno */
+        this._tipoActivo            = 'incidencia';
+        this._coordenadasActivas    = null;
+        this._reporteGuardadoExito  = false;
     }
 
     /**
      * inicializar()
-     * Registra todos los listeners de eventos de la interfaz.
-     * Debe llamarse después de que el DOM esté completamente cargado.
+     * Registra todos los escuchadores de eventos.
      */
     inicializar() {
         this._registrarEventoUsuario();
         this._registrarEventoTrafico();
         this._registrarEventoIncidencia();
+        this._registrarEventoClickMapa();
         this._registrarEventosModal();
+        this._registrarEventosStatus();
+        this._registrarEventosTabsTipo();
 
-        console.log('[UIController] Eventos de interfaz registrados.');
+        console.log('[UIController] Eventos de interfaz y clicks de mapa registrados.');
     }
 
     /**
-     * _registrarEventoUsuario()  [privado]
-     * Configura el comportamiento del botón de perfil de usuario
-     * en la esquina superior derecha.
+     * _registrarEventoClickMapa() [privado]
+     * Permite hacer click en cualquier punto del mapa para abrir el formulario
+     * directamente en esa ubicación exacta ("MAP POINT").
+     */
+    _registrarEventoClickMapa() {
+        if (!this.mapa) return;
+
+        this.mapa.on('click', (e) => {
+            const latlng = e.latlng;
+            console.log(`[UIController] Click en mapa → Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`);
+
+            /* 1. Coloca el marcador animado MAP POINT en el mapa */
+            if (this.mapController) {
+                this.mapController.colocarPunto(latlng);
+            }
+
+            /* 2. Abre el modal de reporte configurado con esas coordenadas */
+            this._abrirModal('incidencia', latlng);
+        });
+    }
+
+    /**
+     * _registrarEventoUsuario() [privado]
      */
     _registrarEventoUsuario() {
-        if (!this.btnUsuario) return; /* Guarda defensiva: sale si el elemento no existe */
+        if (!this.btnUsuario) return;
 
         this.btnUsuario.addEventListener('click', () => {
-            /* TODO: Abrir panel de perfil / login del usuario */
             console.log('[UIController] Botón de usuario presionado.');
             alert('Perfil de usuario — próximamente disponible.');
         });
     }
 
     /**
-     * _registrarEventoTrafico()  [privado]
-     * Configura el botón de reporte de tráfico.
-     * Al hacer click, abre el modal con el tipo "trafico".
+     * _registrarEventoTrafico() [privado]
+     * Botón de reporte rápido de Tráfico.
      */
     _registrarEventoTrafico() {
         if (!this.btnTrafico) return;
 
         this.btnTrafico.addEventListener('click', () => {
-            /* Abre el modal de registro preconfigurado para tráfico */
-            this._abrirModal('trafico');
+            const centro = this.mapa.getCenter();
+            if (this.mapController) {
+                this.mapController.colocarPunto(centro);
+            }
+            this._abrirModal('trafico', centro);
         });
     }
 
     /**
-     * _registrarEventoIncidencia()  [privado]
-     * Configura el botón de reporte de incidencias viales.
-     * Al hacer click, abre el modal con el tipo "incidencia".
+     * _registrarEventoIncidencia() [privado]
+     * Botón de reporte rápido de Incidencias.
      */
     _registrarEventoIncidencia() {
         if (!this.btnIncidencia) return;
 
         this.btnIncidencia.addEventListener('click', () => {
-            this._abrirModal('incidencia');
+            const centro = this.mapa.getCenter();
+            if (this.mapController) {
+                this.mapController.colocarPunto(centro);
+            }
+            this._abrirModal('incidencia', centro);
         });
     }
 
     /**
-     * _registrarEventosModal()  [privado]
-     * Registra todos los eventos internos del modal:
-     *   - Cerrar al hacer click en la X
-     *   - Cerrar al hacer click en el overlay
-     *   - Cerrar con la tecla Escape
-     *   - Previsualizar archivos adjuntos seleccionados
-     *   - Enviar el formulario
+     * _registrarEventosTabsTipo() [privado]
+     * Permite alternar entre "Incidencia Vial" y "Tráfico" dentro del modal.
+     */
+    _registrarEventosTabsTipo() {
+        if (this.tabTipoIncidencia) {
+            this.tabTipoIncidencia.addEventListener('click', () => this._cambiarTipo('incidencia'));
+        }
+        if (this.tabTipoTrafico) {
+            this.tabTipoTrafico.addEventListener('click', () => this._cambiarTipo('trafico'));
+        }
+    }
+
+    /**
+     * _cambiarTipo(tipo) [privado]
+     * Actualiza el tipo activo y el diseño visual del modal.
+     */
+    _cambiarTipo(tipo) {
+        this._tipoActivo = tipo;
+        const cfg = this.tiposReporte[tipo];
+        if (!cfg) return;
+
+        /* Actualiza cabecera */
+        this.modalHeader.style.backgroundColor = cfg.color;
+        this.modalTitle.textContent            = cfg.label;
+        this.btnEnviarReporte.style.backgroundColor = cfg.colorBtn;
+
+        this.modalIcon.innerHTML = `
+            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="${cfg.svgPath}"/>
+            </svg>`;
+
+        /* Actualiza tabs visuales */
+        if (tipo === 'incidencia') {
+            this.tabTipoIncidencia.className =
+                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-red-50 text-red-700 border-red-300';
+            this.tabTipoTrafico.className =
+                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-gray-100 text-gray-500 border-gray-200';
+        } else {
+            this.tabTipoTrafico.className =
+                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 border-amber-300';
+            this.tabTipoIncidencia.className =
+                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-gray-100 text-gray-500 border-gray-200';
+        }
+    }
+
+    /**
+     * _registrarEventosStatus() [privado]
+     * Gestiona los botones interactivos de STATUS:
+     *   - Y = Activo / Sí
+     *   - N = Resuelto / Inactivo / No
+     */
+    _registrarEventosStatus() {
+        if (!this.btnStatusY || !this.btnStatusN || !this.inputStatus) return;
+
+        this.btnStatusY.addEventListener('click', () => {
+            this.inputStatus.value = 'Y';
+            this.btnStatusY.classList.add('active-y');
+            this.btnStatusN.classList.remove('active-n');
+        });
+
+        this.btnStatusN.addEventListener('click', () => {
+            this.inputStatus.value = 'N';
+            this.btnStatusN.classList.add('active-n');
+            this.btnStatusY.classList.remove('active-y');
+        });
+    }
+
+    /**
+     * _registrarEventosModal() [privado]
      */
     _registrarEventosModal() {
-
-        /* Cerrar modal con el botón ✕ */
+        /* Cerrar con el botón ✕ */
         this.btnCerrarModal.addEventListener('click', () => this._cerrarModal());
 
-        /* Cerrar modal haciendo click fuera de la tarjeta (en el overlay) */
+        /* Cerrar haciendo click en el overlay oscuro */
         this.modalOverlay.addEventListener('click', () => this._cerrarModal());
 
-        /* Cerrar modal con la tecla Escape */
+        /* Cerrar con tecla Escape */
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !this.reportModal.classList.contains('hidden')) {
                 this._cerrarModal();
             }
         });
 
-        /* Actualizar texto del área de adjuntos cuando el usuario elige archivos */
+        /* Texto de archivos adjuntos */
         this.inputAdjuntos.addEventListener('change', () => {
             const n = this.inputAdjuntos.files.length;
             this.adjuntosTexto.textContent =
                 n === 0 ? 'Toca para adjuntar foto o video'
-              : n === 1 ? `1 archivo seleccionado`
+              : n === 1 ? '1 archivo seleccionado'
               :           `${n} archivos seleccionados`;
         });
 
-        /* Manejar envío del formulario */
+        /* Envío del formulario */
         this.reportForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            /* _enviarReporte es async; se llama sin await porque el listener
-               no puede ser async — los errores se capturan dentro del método */
             this._enviarReporte();
         });
     }
 
     /**
-     * _abrirModal(tipo)  [privado]
-     * Personaliza el modal según el tipo de reporte y lo hace visible.
+     * _abrirModal(tipo, latlng) [privado]
+     * Abre el modal configurado con la categoría y coordenadas seleccionadas.
      *
-     * @param {string} tipo - 'trafico' | 'incidencia'
+     * @param {string} tipo       - 'incidencia' | 'trafico'
+     * @param {L.LatLng} [latlng] - Coordenadas del punto clickeado
      */
-    _abrirModal(tipo) {
-        const cfg = this.tiposReporte[tipo];
-        if (!cfg) return;
+    _abrirModal(tipo, latlng) {
+        this._reporteGuardadoExito = false;
+        this._coordenadasActivas   = latlng || this.mapa.getCenter();
 
-        this._tipoActivo = tipo;
+        /* Actualiza el badge con las coordenadas del punto */
+        if (this.modalCoordsBadge && this._coordenadasActivas) {
+            const lat = Number(this._coordenadasActivas.lat).toFixed(4);
+            const lng = Number(this._coordenadasActivas.lng).toFixed(4);
+            this.modalCoordsBadge.textContent = `📍 ${lat}, ${lng}`;
+        }
 
-        /* ── Personaliza la cabecera con el color del tipo ── */
-        this.modalHeader.style.backgroundColor = cfg.color;
-        this.modalTitle.textContent = cfg.label;
+        /* Aplica categoría y colores */
+        this._cambiarTipo(tipo || 'incidencia');
 
-        /* ── Pinta el ícono SVG dentro del círculo blanco ── */
-        this.modalIcon.style.backgroundColor = 'rgba(255,255,255,0.25)';
-        this.modalIcon.innerHTML = `
-            <svg class="w-6 h-6 text-white" fill="currentColor"
-                 viewBox="0 0 24 24" aria-hidden="true">
-                <path d="${cfg.svgPath}"/>
-            </svg>`;
+        /* Restablece Status por defecto a 'Y' (Activo) */
+        if (this.inputStatus && this.btnStatusY && this.btnStatusN) {
+            this.inputStatus.value = 'Y';
+            this.btnStatusY.classList.add('active-y');
+            this.btnStatusN.classList.remove('active-n');
+        }
 
-        /* ── Actualiza el color del anillo de focus y del botón de envío ── */
-        this.inputTitulo.className = this.inputTitulo.className
-            .replace(/focus:ring-\S+/g, '') + ` ${cfg.ring}`;
-        this.inputDescripcion.className = this.inputDescripcion.className
-            .replace(/focus:ring-\S+/g, '') + ` ${cfg.ring}`;
-        this.btnEnviarReporte.style.backgroundColor = cfg.colorBtn;
-
-        /* ── Limpia campos del formulario ── */
+        /* Limpia campos de texto */
         this.reportForm.reset();
         this.adjuntosTexto.textContent = 'Toca para adjuntar foto o video';
 
-        /* ── Muestra el modal con animación ── */
+        /* Muestra el modal con animación */
         this.reportModal.classList.remove('hidden');
-        /* Espera un frame para que la transición CSS tenga efecto */
         requestAnimationFrame(() => {
             this.reportModal.classList.add('modal-visible');
         });
 
-        /* Foco accesible: mueve el foco al campo de título */
-        setTimeout(() => this.inputTitulo.focus(), 80);
-
-        console.log(`[UIController] Modal abierto — tipo: ${tipo}`);
+        /* Foco en el primer campo */
+        setTimeout(() => this.inputTitulo.focus(), 90);
     }
 
     /**
-     * _cerrarModal()  [privado]
-     * Oculta el modal y resetea su estado.
+     * _cerrarModal() [privado]
+     * Cierra el formulario. Si no se guardó un reporte, remueve el MAP POINT temporal.
      */
     _cerrarModal() {
         this.reportModal.classList.remove('modal-visible');
-        /* Espera la transición de salida antes de ocultarlo del DOM */
+
         setTimeout(() => {
             this.reportModal.classList.add('hidden');
-            this._tipoActivo = null;
+
+            /* Si no se completó el envío, elimina el punto temporal del mapa */
+            if (!this._reporteGuardadoExito && this.mapController) {
+                this.mapController.removerPunto();
+            }
+
+            this._coordenadasActivas = null;
         }, 200);
 
         console.log('[UIController] Modal cerrado.');
     }
 
     /**
-     * _enviarReporte()  [privado]
-     * Recopila los datos del formulario, los combina con la posición
-     * actual del mapa y los envía al backend (POST /api/reportes)
-     * para persistirlos en la base de datos Aiven (tabla ReporteAnonimo).
-     *
-     * Flujo:
-     *   1. Construye el payload con los campos del formulario
-     *   2. Deshabilita el botón de envío para evitar doble envío
-     *   3. Hace fetch al endpoint del servidor
-     *   4. Muestra feedback visual según el resultado
-     *   5. Cierra el modal si el guardado fue exitoso
+     * _enviarReporte() [privado]
+     * Guarda el reporte en la base de datos de Aiven a través de POST /api/reportes.
      */
     async _enviarReporte() {
-
-        /* ── 1. Recopila datos del formulario y del mapa ── */
-        const centro = this.mapa.getCenter();
+        const coords = this._coordenadasActivas || this.mapa.getCenter();
+        const statusValue = this.inputStatus ? this.inputStatus.value : 'Y';
 
         const payload = {
             tipo:        this._tipoActivo,
             titulo:      this.inputTitulo.value.trim(),
             descripcion: this.inputDescripcion.value.trim(),
-            latitud:     centro.lat.toFixed(6),
-            longitud:    centro.lng.toFixed(6)
+            latitud:     coords.lat.toFixed(6),
+            longitud:    coords.lng.toFixed(6),
+            estado:      statusValue === 'Y' ? 'activo' : 'resuelto'
         };
 
-        /* ── 2. Bloquea el botón de envío y muestra estado de carga ── */
+        /* Bloquea el botón de envío y da feedback */
         this.btnEnviarReporte.disabled    = true;
         this.btnEnviarReporte.textContent = 'Enviando…';
 
         try {
-            /* ── 3. Llama al endpoint del servidor ── */
             const respuesta = await fetch('/api/reportes', {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -401,43 +566,43 @@ class UIController {
             const datos = await respuesta.json();
 
             if (!respuesta.ok || !datos.ok) {
-                /* Error devuelto por el servidor */
                 throw new Error(datos.mensaje || `HTTP ${respuesta.status}`);
             }
 
-            /* ── 4a. Éxito: muestra confirmación y cierra el modal ── */
-            console.log(`[UIController] Reporte guardado en BD → id ${datos.id}`);
-            this._mostrarFeedback('¡Reporte enviado correctamente!', 'exito');
+            console.log(`[UIController] Reporte guardado en Aiven MySQL → ID: ${datos.id}`);
+            this._reporteGuardadoExito = true;
+
+            /* Remueve el MAP POINT temporal y agrega el marcador definitivo */
+            if (this.mapController) {
+                this.mapController.removerPunto();
+                this.mapController.agregarMarcadorConfirmado({
+                    ...payload,
+                    id_anonimo: datos.id,
+                    categoria:  this._tipoActivo === 'trafico' ? 'Tráfico' : 'Incidencia Vial'
+                });
+            }
+
+            this._mostrarFeedback('¡Reporte registrado en el punto del mapa!', 'exito');
             this._cerrarModal();
 
         } catch (error) {
-            /* ── 4b. Error: muestra mensaje sin cerrar el modal ── */
-            console.error('[UIController] Error al enviar reporte:', error.message);
-            this._mostrarFeedback(
-                `No se pudo enviar el reporte: ${error.message}`,
-                'error'
-            );
+            console.error('[UIController] Error al guardar reporte:', error.message);
+            this._mostrarFeedback(`No se pudo guardar: ${error.message}`, 'error');
 
         } finally {
-            /* ── 5. Restaura el botón siempre, haya habido error o no ── */
             this.btnEnviarReporte.disabled    = false;
             this.btnEnviarReporte.textContent = 'Enviar Reporte';
         }
     }
 
     /**
-     * _mostrarFeedback(mensaje, tipo)  [privado]
-     * Muestra un toast/snackbar flotante en la parte inferior de la pantalla.
-     *
-     * @param {string} mensaje - Texto a mostrar.
-     * @param {string} tipo    - 'exito' (verde) | 'error' (rojo)
+     * _mostrarFeedback(mensaje, tipo) [privado]
      */
     _mostrarFeedback(mensaje, tipo) {
-        /* Elimina toast anterior si existe */
         const anterior = document.getElementById('toastFeedback');
         if (anterior) anterior.remove();
 
-        const color = tipo === 'exito' ? '#16a34a' : '#dc2626'; /* green-600 | red-600 */
+        const color = tipo === 'exito' ? '#16a34a' : '#dc2626';
 
         const toast = document.createElement('div');
         toast.id = 'toastFeedback';
@@ -450,10 +615,10 @@ class UIController {
             background: ${color};
             color: #fff;
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 700;
             padding: 12px 24px;
             border-radius: 999px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 18px rgba(0,0,0,0.35);
             z-index: 9999;
             transition: transform 0.25s ease, opacity 0.25s ease;
             opacity: 0;
@@ -462,62 +627,41 @@ class UIController {
 
         document.body.appendChild(toast);
 
-        /* Animación de entrada */
         requestAnimationFrame(() => {
-            toast.style.transform  = 'translateX(-50%) translateY(0)';
-            toast.style.opacity    = '1';
+            toast.style.transform = 'translateX(-50%) translateY(0)';
+            toast.style.opacity   = '1';
         });
 
-        /* Desaparece después de 3 segundos */
         setTimeout(() => {
             toast.style.transform = 'translateX(-50%) translateY(80px)';
             toast.style.opacity   = '0';
             setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        }, 3200);
     }
 }
 
 
 /* =============================================================
    CLASE 3 — PlayaAlertaApp
-   Responsabilidad única: orquestar el arranque de la aplicación.
-   Es el punto de entrada principal (equivalente al "main" en
-   lenguajes como Java o C++).
-   Crea, conecta y arranca todos los controladores.
    ============================================================= */
 
 class PlayaAlertaApp {
 
-    /**
-     * Constructor — instancia los controladores pero NO los inicializa aún.
-     * La inicialización real ocurre en arrancar() para tener control
-     * total sobre el orden de ejecución.
-     */
     constructor() {
-        /* 1. Crea el controlador del mapa — aún no renderiza nada */
         this.mapController = new MapController('map');
-
-        /* 2. El UIController se creará en arrancar() cuando el mapa esté listo */
-        this.uiController = null;
+        this.uiController  = null;
     }
 
-    /**
-     * arrancar()
-     * Método público que inicia la aplicación en el orden correcto:
-     *   1. Inicializa el mapa (Leaflet)
-     *   2. Usa el mapa para crear el controlador de UI
-     *   3. Inicializa los eventos de la interfaz
-     */
     arrancar() {
         console.log('[PlayaAlertaApp] Iniciando Playa Alerta...');
 
-        /* PASO 1 — Inicializa el mapa y obtiene la instancia de Leaflet */
+        /* 1. Inicializa el mapa interactivo */
         const mapaLeaflet = this.mapController.inicializar();
 
-        /* PASO 2 — Crea el controlador de UI pasándole la instancia del mapa */
-        this.uiController = new UIController(mapaLeaflet);
+        /* 2. Pasa tanto el mapa como el MapController al UIController */
+        this.uiController = new UIController(mapaLeaflet, this.mapController);
 
-        /* PASO 3 — Registra todos los eventos de la interfaz de usuario */
+        /* 3. Registra eventos de UI y clicks del mapa */
         this.uiController.inicializar();
 
         console.log('[PlayaAlertaApp] Aplicación lista.');
@@ -527,17 +671,9 @@ class PlayaAlertaApp {
 
 /* =============================================================
    PUNTO DE ENTRADA
-   Espera a que el DOM esté completamente cargado antes de
-   instanciar y arrancar la aplicación. Esto garantiza que
-   todos los elementos HTML (botones, el <main id="map">, etc.)
-   existen antes de que el código JS intente acceder a ellos.
    ============================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
-
-    /* Crea la única instancia de la aplicación (patrón Singleton implícito) */
     const app = new PlayaAlertaApp();
-
-    /* Arranca la aplicación */
     app.arrancar();
 });

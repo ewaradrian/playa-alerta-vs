@@ -141,3 +141,124 @@ body {
     /* Sube el control de zoom 160 px desde el borde inferior */
     bottom: 160px !important; /* !important necesario para sobrescribir los estilos de Leaflet */
 }
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 7 — MARCADOR DE PUNTO DE MAPA (MAP POINT)
+   Efecto de radar pulsante sobre el punto exacto seleccionado
+   al hacer click en el mapa.
+   ------------------------------------------------------------- */
+
+.map-point-icon {
+    position: relative;
+    width: 28px !important;
+    height: 28px !important;
+}
+
+.map-point-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    margin-top: -22px;
+    margin-left: -22px;
+    border-radius: 50%;
+    background-color: rgba(239, 68, 68, 0.45);
+    animation: pulseRadar 1.8s ease-out infinite;
+    pointer-events: none;
+}
+
+.map-point-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    margin-left: -10px;
+    border-radius: 50%;
+    background-color: #ef4444;
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.9), 0 3px 8px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease;
+}
+
+@keyframes pulseRadar {
+    0% {
+        transform: scale(0.4);
+        opacity: 0.9;
+    }
+    70% {
+        transform: scale(1.6);
+        opacity: 0.2;
+    }
+    100% {
+        transform: scale(2.0);
+        opacity: 0;
+    }
+}
+
+/* Marcador permanente de reporte confirmado en el mapa */
+.report-confirmed-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50%;
+    border: 2.5px solid white;
+    color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.report-confirmed-icon:hover {
+    transform: scale(1.15);
+}
+
+
+/* -------------------------------------------------------------
+   SECCIÓN 8 — BOTONES DE STATUS (Y / N)
+   Botones de selección de estado activo (Y = Sí, N = No)
+   ------------------------------------------------------------- */
+
+.status-toggle-btn {
+    width: 60px;
+    height: 44px;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 1rem;
+    transition: all 0.18s ease;
+    border: 2px solid #e5e7eb;
+    background-color: #f3f4f6;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.status-toggle-btn:hover {
+    border-color: #d1d5db;
+    background-color: #e5e7eb;
+}
+
+/* Estado activo botón "Y" */
+.status-toggle-btn.active-y {
+    background-color: #16a34a !important;
+    border-color: #15803d !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+    transform: scale(1.05);
+}
+
+/* Estado activo botón "N" */
+.status-toggle-btn.active-n {
+    background-color: #dc2626 !important;
+    border-color: #b91c1c !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+    transform: scale(1.05);
+}
+

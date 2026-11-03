@@ -30,10 +30,6 @@ app.use(express.static(path.join(__dirname, 'public'))); /* Sirve HTML/CSS/JS */
 
 
 /* ── Pool de conexiones a Aiven MySQL ────────────────────── */
-/*
- * Se usa un pool (no una sola conexión) para manejar múltiples
- * peticiones simultáneas de forma eficiente y resistente a caídas.
- */
 const db = mysql.createPool({
     host:               process.env.DB_HOST,
     port:               Number(process.env.DB_PORT),
@@ -60,7 +56,6 @@ const db = mysql.createPool({
  * @returns {Promise<number>}      - id_categoria encontrado o creado.
  */
 async function obtenerIdCategoria(nombre, conn) {
-    /* Intenta encontrar la categoría existente */
     const [rows] = await conn.execute(
         'SELECT id_categoria FROM Categoria WHERE nombre = ? LIMIT 1',
         [nombre]
@@ -68,7 +63,6 @@ async function obtenerIdCategoria(nombre, conn) {
 
     if (rows.length > 0) return rows[0].id_categoria;
 
-    /* Si no existe, la crea con visible = true */
     const [result] = await conn.execute(
         'INSERT INTO Categoria (nombre, visible) VALUES (?, TRUE)',
         [nombre]
@@ -92,7 +86,6 @@ async function obtenerIdZona(conn) {
 
     if (rows.length > 0) return rows[0].id_zona;
 
-    /* Si la tabla está vacía, inserta la zona base */
     const [result] = await conn.execute(
         'INSERT INTO ZonaPlaya (colonia, codigo_postal) VALUES (?, ?)',
         ['Playa del Carmen Centro', '77710']
@@ -109,6 +102,32 @@ app.get('/', (req, res) => {
 
 
 /* ══════════════════════════════════════════════════════════
+   ENDPOINT: GET /api/reportes
+   Devuelve los reportes registrados para mostrarlos en el mapa.
+   ══════════════════════════════════════════════════════════ */
+app.get('/api/reportes', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const [rows] = await conn.execute(
+            `SELECT r.id_anonimo, r.titulo, r.descripcion, r.latitud, r.longitud, r.estado,
+                    c.nombre AS categoria
+             FROM ReporteAnonimo r
+             LEFT JOIN Categoria c ON r.id_categoria = c.id_categoria
+             ORDER BY r.id_anonimo DESC
+             LIMIT 100`
+        );
+        return res.json({ ok: true, reportes: rows });
+    } catch (error) {
+        console.error('[API] Error al consultar reportes:', error.message);
+        return res.status(500).json({ ok: false, mensaje: 'Error al consultar reportes.' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+
+/* ══════════════════════════════════════════════════════════
    ENDPOINT: POST /api/reportes
    Guarda un reporte anónimo en la tabla ReporteAnonimo.
 
@@ -118,19 +137,14 @@ app.get('/', (req, res) => {
      "titulo":      string (max 120 chars),
      "descripcion": string,
      "latitud":     string,
-     "longitud":    string
+     "longitud":    string,
+     "estado":      "activo" | "resuelto" | "Y" | "N"
    }
-
-   Respuesta exitosa (201):
-   { "ok": true, "id": <id_anonimo generado> }
-
-   Respuesta de error (400 / 500):
-   { "ok": false, "mensaje": "..." }
    ══════════════════════════════════════════════════════════ */
 app.post('/api/reportes', async (req, res) => {
 
     /* ── 1. Extrae y valida el cuerpo de la petición ── */
-    const { tipo, titulo, descripcion, latitud, longitud } = req.body;
+    const { tipo, titulo, descripcion, latitud, longitud, estado } = req.body;
 
     if (!tipo || !latitud || !longitud) {
         return res.status(400).json({
@@ -152,6 +166,13 @@ app.post('/api/reportes', async (req, res) => {
             mensaje: `Tipo de reporte desconocido: "${tipo}".`
         });
     }
+
+    /* Normalización de estado (Y -> activo, N -> resuelto) */
+    const estadoNormalizado = (estado === 'Y' || estado === 'activo')
+        ? 'activo'
+        : (estado === 'N' || estado === 'resuelto')
+            ? 'resuelto'
+            : (estado || 'activo');
 
     /* Captura la IP del cliente para el campo ip_origen */
     const ipOrigen =
@@ -175,7 +196,7 @@ app.post('/api/reportes', async (req, res) => {
             `INSERT INTO ReporteAnonimo
                 (id_categoria, id_zona, titulo, descripcion,
                  latitud, longitud, estado, ip_origen)
-             VALUES (?, ?, ?, ?, ?, ?, 'pendiente', ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 idCategoria,
                 idZona,
@@ -183,12 +204,13 @@ app.post('/api/reportes', async (req, res) => {
                 (descripcion || '').substring(0, 500),
                 String(latitud).substring(0, 20),
                 String(longitud).substring(0, 20),
+                estadoNormalizado.substring(0, 30),
                 ipOrigen
             ]
         );
 
         const idGenerado = result.insertId;
-        console.log(`[API] Reporte anónimo guardado → id ${idGenerado} | tipo: ${tipo}`);
+        console.log(`[API] Reporte anónimo guardado → id ${idGenerado} | tipo: ${tipo} | estado: ${estadoNormalizado}`);
 
         /* ── 4. Responde con éxito ── */
         return res.status(201).json({ ok: true, id: idGenerado });
@@ -201,7 +223,6 @@ app.post('/api/reportes', async (req, res) => {
         });
 
     } finally {
-        /* Libera la conexión de vuelta al pool, siempre */
         if (conn) conn.release();
     }
 });

@@ -227,7 +227,7 @@
 
             <!-- ── Cabecera coloreada ── -->
             <div id="modalHeader"
-                 class="px-6 pt-5 pb-4 flex items-center justify-between">
+                 class="px-6 pt-5 pb-4 flex items-center justify-between transition-colors">
 
                 <!-- Tipo de reporte (se actualiza dinámicamente) -->
                 <div class="flex items-center gap-3">
@@ -237,11 +237,19 @@
                     </div>
                     <!-- Título del tipo de reporte -->
                     <div>
-                        <p class="text-xs font-semibold text-white/80 uppercase tracking-widest">
-                            Nuevo Reporte
-                        </p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-xs font-semibold text-white/80 uppercase tracking-widest">
+                                Reporte en Mapa
+                            </p>
+                            <!-- Badge de coordenadas del punto clickeado -->
+                            <span id="modalCoordsBadge"
+                                  class="text-[10px] font-mono text-white/90 bg-white/20 px-2 py-0.5 rounded-full">
+                                📍 Punto
+                            </span>
+                        </div>
                         <h2 id="modalTitle"
                             class="text-lg font-extrabold text-white leading-tight">
+                            Incidencia Vial
                         </h2>
                     </div>
                 </div>
@@ -260,9 +268,29 @@
                 </button>
             </div>
 
+            <!-- ── Selector de categoría (pills rápidos) ── -->
+            <div class="px-6 pt-3 pb-1 flex gap-2">
+                <button type="button"
+                        id="tabTipoIncidencia"
+                        class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider
+                               border transition-all flex items-center justify-center gap-1.5
+                               bg-red-50 text-red-700 border-red-300">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    Incidencia
+                </button>
+                <button type="button"
+                        id="tabTipoTrafico"
+                        class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider
+                               border transition-all flex items-center justify-center gap-1.5
+                               bg-gray-100 text-gray-500 border-gray-200">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Tráfico
+                </button>
+            </div>
+
             <!-- ── Cuerpo del formulario ── -->
             <form id="reportForm"
-                  class="px-6 pb-6 flex flex-col gap-4"
+                  class="px-6 pb-6 pt-2 flex flex-col gap-3"
                   novalidate>
 
                 <!-- Campo: Título del reporte -->
@@ -338,6 +366,34 @@
                            accept="image/*,video/*"
                            multiple
                            class="hidden">
+                </div>
+
+                <!-- ── Campo: STATUS (Y / N) ── -->
+                <div class="flex flex-col items-center justify-center gap-1.5 py-1">
+                    <div class="flex items-center justify-center gap-4">
+                        <!-- Botón Y (Activo / Sí) -->
+                        <button type="button"
+                                id="btnStatusY"
+                                data-status="Y"
+                                class="status-toggle-btn active-y"
+                                aria-label="Status: Activo / Sí">
+                            Y
+                        </button>
+                        <!-- Botón N (Inactivo / No) -->
+                        <button type="button"
+                                id="btnStatusN"
+                                data-status="N"
+                                class="status-toggle-btn"
+                                aria-label="Status: Resuelto / No">
+                            N
+                        </button>
+                    </div>
+                    <!-- Etiqueta STATUS tal como en la referencia -->
+                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest text-center">
+                        STATUS
+                    </span>
+                    <!-- Input oculto para guardar el estado -->
+                    <input type="hidden" id="inputStatus" value="Y">
                 </div>
 
                 <!-- Separador visual -->
