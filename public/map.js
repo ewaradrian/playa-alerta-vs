@@ -717,7 +717,7 @@ class UIController {
 
     /**
      * _enviarReporte() [privado]
-     * Guarda el reporte en la base de datos de Aiven a través de POST /api/reportes.
+     * Guarda el reporte en la base de datos a través de POST /api/reportes.
      */
     async _enviarReporte() {
         const coords = this._coordenadasActivas || this.mapa.getCenter();
@@ -749,7 +749,7 @@ class UIController {
                 throw new Error(datos.mensaje || `HTTP ${respuesta.status}`);
             }
 
-            console.log(`[UIController] Reporte guardado en Aiven MySQL → ID: ${datos.id}`);
+            console.log(`[UIController] Reporte guardado en Base de Datos (Supabase) → ID: ${datos.id}`);
             this._reporteGuardadoExito = true;
 
             /* Remueve el MAP POINT temporal y agrega el marcador definitivo */
