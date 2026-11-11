@@ -28,16 +28,45 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 /* ── 1. Inicialización de Base de Datos ────────────────────── */
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+/**
+ * Normaliza y sanea la URL de Supabase para evitar errores de validación
+ * si el usuario no incluyó 'https://' o si pegó con comillas/espacios.
+ */
+function limpiarUrlSupabase(url) {
+    if (!url || typeof url !== 'string') return null;
+    let limpia = url.trim().replace(/^['"]|['"]$/g, '');
+    if (!limpia) return null;
+    // Si no tiene protocolo http:// ni https://, anteponer https://
+    if (!limpia.startsWith('http://') && !limpia.startsWith('https://')) {
+        limpia = 'https://' + limpia;
+    }
+    // Eliminar barras diagonales al final
+    return limpia.replace(/\/+$/, '');
+}
+
+function limpiarClaveSupabase(clave) {
+    if (!clave || typeof clave !== 'string') return null;
+    return clave.trim().replace(/^['"]|['"]$/g, '');
+}
+
+const rawSupabaseUrl = process.env.SUPABASE_URL;
+const rawSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+const supabaseUrl = limpiarUrlSupabase(rawSupabaseUrl);
+const supabaseKey = limpiarClaveSupabase(rawSupabaseKey);
 
 let supabase = null;
 let mysqlPool = null;
 
 if (supabaseUrl && supabaseKey) {
     /* MODO PRIMARIO: Supabase */
-    supabase = createClient(supabaseUrl, supabaseKey);
-    console.log('[DB] Conectado a Supabase en:', supabaseUrl);
+    try {
+        supabase = createClient(supabaseUrl, supabaseKey);
+        console.log('[DB] Conectado a Supabase en:', supabaseUrl);
+    } catch (err) {
+        console.error('[DB] Error al inicializar cliente de Supabase:', err.message);
+    }
 } else if (process.env.DB_HOST && process.env.DB_PASSWORD) {
     /* MODO SECUNDARIO (Fallback): Aiven MySQL */
     const mysql = require('mysql2/promise');

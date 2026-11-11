@@ -10,8 +10,23 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+function limpiarUrlSupabase(url) {
+    if (!url || typeof url !== 'string') return null;
+    let limpia = url.trim().replace(/^['"]|['"]$/g, '');
+    if (!limpia) return null;
+    if (!limpia.startsWith('http://') && !limpia.startsWith('https://')) {
+        limpia = 'https://' + limpia;
+    }
+    return limpia.replace(/\/+$/, '');
+}
+
+function limpiarClaveSupabase(clave) {
+    if (!clave || typeof clave !== 'string') return null;
+    return clave.trim().replace(/^['"]|['"]$/g, '');
+}
+
+const supabaseUrl = limpiarUrlSupabase(process.env.SUPABASE_URL);
+const supabaseKey = limpiarClaveSupabase(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY);
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('❌ Faltan las variables SUPABASE_URL y/o SUPABASE_ANON_KEY en tu archivo .env');
