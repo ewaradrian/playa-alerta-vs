@@ -12,17 +12,33 @@ const { createClient } = require('@supabase/supabase-js');
 
 function limpiarUrlSupabase(url) {
     if (!url || typeof url !== 'string') return null;
-    let limpia = url.trim().replace(/^['"]|['"]$/g, '');
+    let limpia = url.trim().replace(/^['"]+|['"]+$/g, '');
     if (!limpia) return null;
+
+    const matchDb = limpia.match(/db\.([a-z0-9_-]+)\.supabase\.co/i);
+    if (matchDb && matchDb[1]) {
+        return `https://${matchDb[1]}.supabase.co`;
+    }
+
     if (!limpia.startsWith('http://') && !limpia.startsWith('https://')) {
         limpia = 'https://' + limpia;
     }
-    return limpia.replace(/\/+$/, '');
+
+    try {
+        const parsed = new URL(limpia);
+        let host = parsed.hostname;
+        if (host.startsWith('db.')) {
+            host = host.replace(/^db\./, '');
+        }
+        return `https://${host}`;
+    } catch (e) {
+        return limpia.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+    }
 }
 
 function limpiarClaveSupabase(clave) {
     if (!clave || typeof clave !== 'string') return null;
-    return clave.trim().replace(/^['"]|['"]$/g, '');
+    return clave.trim().replace(/^['"]+|['"]+$/g, '');
 }
 
 const supabaseUrl = limpiarUrlSupabase(process.env.SUPABASE_URL);

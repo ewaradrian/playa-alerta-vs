@@ -31,23 +31,39 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 /**
  * Normaliza y sanea la URL de Supabase para evitar errores de validación
- * si el usuario no incluyó 'https://' o si pegó con comillas/espacios.
+ * y paths duplicados como '/rest/v1'. Extrae siempre el origen puro 'https://<ref>.supabase.co'.
  */
 function limpiarUrlSupabase(url) {
     if (!url || typeof url !== 'string') return null;
-    let limpia = url.trim().replace(/^['"]|['"]$/g, '');
+    let limpia = url.trim().replace(/^['"]+|['"]+$/g, '');
     if (!limpia) return null;
-    // Si no tiene protocolo http:// ni https://, anteponer https://
+
+    // Si el usuario pegó la cadena de conexión postgresql://postgres:...@db.ref.supabase.co:5432/...
+    const matchDb = limpia.match(/db\.([a-z0-9_-]+)\.supabase\.co/i);
+    if (matchDb && matchDb[1]) {
+        return `https://${matchDb[1]}.supabase.co`;
+    }
+
     if (!limpia.startsWith('http://') && !limpia.startsWith('https://')) {
         limpia = 'https://' + limpia;
     }
-    // Eliminar barras diagonales al final
-    return limpia.replace(/\/+$/, '');
+
+    try {
+        const parsed = new URL(limpia);
+        let host = parsed.hostname;
+        // Si el hostname empieza por db., quitarlo
+        if (host.startsWith('db.')) {
+            host = host.replace(/^db\./, '');
+        }
+        return `https://${host}`;
+    } catch (e) {
+        return limpia.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+    }
 }
 
 function limpiarClaveSupabase(clave) {
     if (!clave || typeof clave !== 'string') return null;
-    return clave.trim().replace(/^['"]|['"]$/g, '');
+    return clave.trim().replace(/^['"]+|['"]+$/g, '');
 }
 
 const rawSupabaseUrl = process.env.SUPABASE_URL;
