@@ -606,8 +606,95 @@ def generar_doc_7():
     doc.save(out_path)
     print(f"Generado: {out_path}")
 
+def generar_doc_8():
+    doc = create_base_doc()
+    add_header_banner(
+        doc,
+        title_text="COMMIT 8: MIGRACIÓN A SUPABASE Y CONFIGURACIÓN VERCEL",
+        subtitle_text="Integración con @supabase/supabase-js, esquema PostgreSQL, RLS y despliegue Serverless en Vercel"
+    )
+    
+    add_metadata_table(doc, {
+        "Commit Hash": "5b2ff43a8a3a7c6a99971ec70f44f6f1c4df7a12 (5b2ff43)",
+        "Fecha de Registro": "11 de Noviembre de 2026",
+        "Autor / Committer": "ewaradrian <ewaradrian@gmail.com>",
+        "Rama": "main",
+        "Mensaje de Commit": "Migrate database to Supabase and configure Vercel deployment",
+        "Tipo de Cambio": "Migración de Base de Datos y Preparación para Producción Serverless"
+    })
+    
+    add_section_heading(doc, "1. Resumen Ejecutivo")
+    add_paragraph_styled(
+        doc,
+        "Este commit marca la transición estratégica de la infraestructura de datos hacia Supabase (PostgreSQL), "
+        "reemplazando la dependencia de conexiones TCP pesadas (MySQL en Aiven) por el cliente oficial @supabase/supabase-js "
+        "basado en HTTPS / PostgREST. Al mismo tiempo, se configuró el proyecto para despliegue sin servidor (Serverless) "
+        "en la plataforma Vercel con reglas de reescritura de rutas y compatibilidad local intacta.",
+        bold_prefix="Objetivo General:"
+    )
+    
+    add_section_heading(doc, "2. Arquitectura y Componentes Técnicos")
+    add_paragraph_styled(
+        doc,
+        "La migración comprende tanto la capa de base de datos como el runtime de ejecución:",
+        bold_prefix="Detalles de Implementación:"
+    )
+    add_bullet_styled(
+        doc,
+        "Instalación de @supabase/supabase-js. En server.js se inicializa el cliente con SUPABASE_URL y SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY. Permite operaciones sin límite de sockets TCP, ideal para serverless.",
+        bold_prefix="Cliente Supabase (SDK Oficial):"
+    )
+    add_bullet_styled(
+        doc,
+        "Creación de db/supabase_schema.sql conteniendo el esquema completo en PostgreSQL (tablas Administrador, Usuario, RegistroActividadAdmin, Categoria, ZonaPlaya, Reporte y ReporteAnonimo), con restricciones de clave foránea, datos semilla y políticas de seguridad por fila (RLS - Row Level Security) habilitadas para lectura e inserción pública.",
+        bold_prefix="Esquema PostgreSQL (db/supabase_schema.sql):"
+    )
+    add_bullet_styled(
+        doc,
+        "Creación de api/index.js como función Serverless de Vercel y vercel.json con rewrites para /api/(.*) hacia api/index.js y /(.*) hacia public/$1. Permite que Vercel sirva el frontend desde su CDN Edge y procese la API bajo demanda.",
+        bold_prefix="Configuración Vercel (vercel.json y api/index.js):"
+    )
+    add_bullet_styled(
+        doc,
+        "server.js fue actualizado con un enrutador modular (express.Router()) que atiende endpoints en /api/reportes y mantiene un modo fallback hacia MySQL en caso de no detectar variables de Supabase.",
+        bold_prefix="Resiliencia en Backend:"
+    )
+    add_bullet_styled(
+        doc,
+        "Creación de db/test-supabase.js para validar en segundos la conectividad y lectura de tablas desde la consola.",
+        bold_prefix="Script de Diagnóstico:"
+    )
+    
+    add_callout(
+        doc,
+        "El uso de @supabase/supabase-js vía HTTPS elimina el problema de agotamiento de conexiones en funciones Serverless de Vercel (evitando errores 500 por límites de Connection Pooling).",
+        title="VENTAJA SERVERLESS"
+    )
+    
+    add_section_heading(doc, "3. Archivos del Proyecto Impactados")
+    archivos = [
+        ["server.js", "Modificado", "+120 / -80 líneas", "Integración con @supabase/supabase-js, router modular y exportación para Vercel"],
+        ["vercel.json", "Creación", "+12 líneas", "Reglas de reescritura para rutas Serverless de API y archivos estáticos de /public"],
+        ["api/index.js", "Creación", "+10 líneas", "Entrypoint Serverless para Vercel exportando la aplicación Express"],
+        ["db/supabase_schema.sql", "Creación", "+110 líneas", "Script SQL completo para Supabase (tablas, RLS, políticas y semillas)"],
+        ["db/test-supabase.js", "Creación", "+45 líneas", "Script de prueba de conexión y lectura hacia Supabase"],
+        [".env.example", "Modificado", "+10 líneas", "Plantilla con variables de entorno SUPABASE_URL y SUPABASE_ANON_KEY"],
+        ["public/map.js", "Modificado", "+2 líneas", "Actualización de mensajes de log hacia la nueva base de datos"]
+    ]
+    add_files_table(doc, archivos)
+    
+    add_section_heading(doc, "4. Pruebas y Criterios de Aceptación")
+    add_bullet_styled(doc, "server.js y api/index.js se ejecutan sin errores de sintaxis (`node --check`).", bold_prefix="Sintaxis:")
+    add_bullet_styled(doc, "La app exporta la instancia de Express requerida por Vercel (`module.exports = app`).", bold_prefix="Serverless:")
+    add_bullet_styled(doc, "El esquema SQL se ejecuta limpiamente en el SQL Editor de Supabase creando las 7 tablas y políticas RLS.", bold_prefix="Base de Datos:")
+    add_bullet_styled(doc, "El despliegue en Vercel conecta a Supabase mediante variables de entorno en Project Settings.", bold_prefix="Despliegue:")
+    
+    out_path = os.path.join(OUTPUT_DIR, "08_Commit_5b2ff43_Migracion_Supabase_y_Vercel.docx")
+    doc.save(out_path)
+    print(f"Generado: {out_path}")
+
 if __name__ == "__main__":
-    print("Iniciando generación de los 7 documentos .docx...")
+    print("Iniciando generación de los 8 documentos .docx...")
     generar_doc_1()
     generar_doc_2()
     generar_doc_3()
@@ -615,4 +702,5 @@ if __name__ == "__main__":
     generar_doc_5()
     generar_doc_6()
     generar_doc_7()
+    generar_doc_8()
     print("¡Todos los documentos .docx han sido generados exitosamente!")
