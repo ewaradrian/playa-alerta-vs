@@ -47,7 +47,7 @@ if (supabaseUrl && supabaseKey) {
         database:           process.env.DB_NAME || 'defaultdb',
         user:               process.env.DB_USER || 'avnadmin',
         password:           process.env.DB_PASSWORD,
-        ssl:                { rejectUnauthorized: true },
+        ssl:                { rejectUnauthorized: false }, /* Permite el certificado SSL de Aiven */
         waitForConnections: true,
         connectionLimit:    10,
         queueLimit:         0
@@ -195,7 +195,6 @@ apiRouter.get('/reportes', async (req, res) => {
             return res.json({ ok: true, reportes });
         } catch (error) {
             console.error('[API Supabase] Falló la consulta:', error.message);
-            // Si falla, permitir intentar fallback a MySQL si está disponible
         }
     }
 

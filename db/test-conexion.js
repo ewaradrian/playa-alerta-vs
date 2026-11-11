@@ -17,7 +17,7 @@ const mysql = require('mysql2/promise');
             database: process.env.DB_NAME,
             user:     process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            ssl:      { rejectUnauthorized: true }
+            ssl:      { rejectUnauthorized: false }
         });
 
         const [r] = await c.execute('SHOW TABLES');
