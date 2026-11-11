@@ -60,6 +60,9 @@ class MapController {
 
         /* Grupo de capas para los reportes confirmados en el mapa */
         this.capaReportes = null;
+
+        /* Callback para notificar cambios de estado (id_anonimo, nuevoEstado) */
+        this.onStatusChange = null;
     }
 
     /**
@@ -145,10 +148,13 @@ class MapController {
     /**
      * agregarMarcadorConfirmado(reporte)
      * Renderiza un marcador definitivo para un reporte guardado en BD.
+     * El popup incluye botones interactivos Y/N para actualizar el estado
+     * directamente en el mapa (PATCH a la base de datos).
      *
-     * @param {Object} reporte - Datos del reporte {latitud, longitud, tipo, titulo, descripcion, estado}
+     * @param {Object}   reporte          - Datos del reporte {id_anonimo, latitud, longitud, tipo, titulo, descripcion, estado}
+     * @param {Function} [onStatusChange] - Callback(id, nuevoEstado) para persistir el cambio
      */
-    agregarMarcadorConfirmado(reporte) {
+    agregarMarcadorConfirmado(reporte, onStatusChange) {
         const lat = parseFloat(reporte.latitud);
         const lng = parseFloat(reporte.longitud);
 
@@ -157,36 +163,140 @@ class MapController {
         const esTrafico = (reporte.tipo === 'trafico' || reporte.categoria === 'Tráfico');
         const colorBg   = esTrafico ? '#F59E0B' : '#EF4444'; /* amber-500 | red-500 */
         const iconoSvg  = esTrafico
-            ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24 5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11.5 12 11.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 4 12 4s1.5.67 1.5 1.5S12.83 6.5 12 6.5z"/></svg>'
-            : '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+            ? '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24 5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11.5 12 11.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 4 12 4s1.5.67 1.5 1.5S12.83 6.5 12 6.5z"/></svg>'
+            : '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
 
         const customIcon = L.divIcon({
             className: 'report-confirmed-icon',
-            html: `<div style="background-color:${colorBg}; width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center;">${iconoSvg}</div>`,
+            html: `<div style="background-color:${colorBg}; width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white;">${iconoSvg}</div>`,
             iconSize: [30, 30],
             iconAnchor: [15, 15]
         });
 
-        const estadoBadge = reporte.estado === 'activo'
-            ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:999px; font-weight:700;">Activo</span>'
-            : '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:999px; font-weight:700;">Resuelto</span>';
+        /* Estado reactivo del reporte */
+        const estadoActual = {
+            valor: (reporte.estado === 'resuelto' || reporte.estado === 'N') ? 'resuelto' : 'activo'
+        };
 
-        const popupHtml = `
-            <div style="font-family:system-ui,sans-serif; min-width:180px; max-width:240px; padding:4px;">
-                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; font-weight:700; margin-bottom:4px;">
-                    ${esTrafico ? 'Tráfico' : 'Incidencia Vial'} • ${estadoBadge}
+        let marker = null;
+
+        /**
+         * crearContenedorPopup()
+         * Construye el nodo DOM del popup con la cabecera, título, descripción y
+         * la sección de STATUS con botones interactivos Y (Activo) / N (Resuelto).
+         */
+        const crearContenedorPopup = () => {
+            const contenedor = document.createElement('div');
+            contenedor.style.cssText = 'font-family:system-ui, -apple-system, sans-serif; min-width:210px; max-width:260px; padding:4px;';
+
+            const esActivo   = (estadoActual.valor === 'activo');
+            const badgeBg    = esActivo ? '#dcfce7' : '#fee2e2';
+            const badgeColor = esActivo ? '#15803d' : '#b91c1c';
+            const labelBadge = esActivo ? 'ACTIVO' : 'RESUELTO';
+
+            contenedor.innerHTML = `
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#6b7280; font-weight:800; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                    <span>${esTrafico ? 'Tráfico' : 'Incidencia'}</span>
+                    <span style="background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:999px; font-weight:800; font-size:10px;">
+                        ${labelBadge}
+                    </span>
                 </div>
-                <div style="font-weight:800; font-size:14px; color:#111827; margin-bottom:4px;">
+                <div style="font-weight:800; font-size:14px; color:#111827; line-height:1.25; margin-bottom:4px;">
                     ${reporte.titulo || 'Sin título'}
                 </div>
-                <div style="font-size:12px; color:#4b5563; line-height:1.4;">
+                <div style="font-size:12px; color:#4b5563; line-height:1.4; margin-bottom:12px;">
                     ${reporte.descripcion || 'Sin descripción'}
                 </div>
-            </div>
-        `;
 
-        const marker = L.marker([lat, lng], { icon: customIcon })
-            .bindPopup(popupHtml);
+                <!-- ── Sección STATUS con botones Y / N ── -->
+                <div style="border-top:1px solid #f3f4f6; padding-top:10px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <span style="font-size:10px; font-weight:900; color:#6b7280; text-transform:uppercase; letter-spacing:0.12em;">
+                        STATUS
+                    </span>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:12px; width:100%;">
+                        <!-- Botón Y (Activo / Sí) -->
+                        <button type="button" class="popup-btn-y" style="
+                            flex:1; max-width:64px; height:34px; border-radius:12px; font-weight:800; font-size:13px;
+                            border:2px solid ${esActivo ? '#16a34a' : '#e5e7eb'};
+                            background:${esActivo ? '#16a34a' : '#f9fafb'};
+                            color:${esActivo ? '#ffffff' : '#6b7280'};
+                            cursor:pointer; transition:all 0.15s ease;
+                            display:flex; align-items:center; justify-content:center;
+                            box-shadow:${esActivo ? '0 3px 8px rgba(22,163,74,0.3)' : 'none'};
+                        " title="Marcar como Activo (Y)">
+                            Y
+                        </button>
+                        <!-- Botón N (Resuelto / No) -->
+                        <button type="button" class="popup-btn-n" style="
+                            flex:1; max-width:64px; height:34px; border-radius:12px; font-weight:800; font-size:13px;
+                            border:2px solid ${!esActivo ? '#dc2626' : '#e5e7eb'};
+                            background:${!esActivo ? '#dc2626' : '#f9fafb'};
+                            color:${!esActivo ? '#ffffff' : '#6b7280'};
+                            cursor:pointer; transition:all 0.15s ease;
+                            display:flex; align-items:center; justify-content:center;
+                            box-shadow:${!esActivo ? '0 3px 8px rgba(220,38,38,0.3)' : 'none'};
+                        " title="Marcar como Resuelto (N)">
+                            N
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const btnY = contenedor.querySelector('.popup-btn-y');
+            const btnN = contenedor.querySelector('.popup-btn-n');
+            const cb   = onStatusChange || this.onStatusChange;
+
+            const manejarCambioEstado = async (nuevoEstado) => {
+                if (estadoActual.valor === nuevoEstado) return;
+
+                btnY.disabled = true;
+                btnN.disabled = true;
+                btnY.style.opacity = '0.5';
+                btnN.style.opacity = '0.5';
+
+                try {
+                    if (cb) {
+                        await cb(reporte.id_anonimo, nuevoEstado);
+                    }
+                    estadoActual.valor = nuevoEstado;
+                    reporte.estado     = nuevoEstado;
+
+                    /* Ajusta opacidad del marcador: semi-transparente si está resuelto */
+                    if (marker) {
+                        marker.setOpacity(nuevoEstado === 'resuelto' ? 0.6 : 1.0);
+                    }
+
+                    /* Actualiza el contenido del popup en caliente */
+                    popup.setContent(crearContenedorPopup());
+                } catch (err) {
+                    console.error('[MapController] Error al cambiar estado en popup:', err);
+                    btnY.disabled = false;
+                    btnN.disabled = false;
+                    btnY.style.opacity = '1';
+                    btnN.style.opacity = '1';
+                }
+            };
+
+            btnY.addEventListener('click', (e) => {
+                e.stopPropagation();
+                manejarCambioEstado('activo');
+            });
+
+            btnN.addEventListener('click', (e) => {
+                e.stopPropagation();
+                manejarCambioEstado('resuelto');
+            });
+
+            return contenedor;
+        };
+
+        const popup = L.popup({ maxWidth: 280, minWidth: 210, autoPan: true })
+            .setContent(crearContenedorPopup());
+
+        marker = L.marker([lat, lng], {
+            icon: customIcon,
+            opacity: (estadoActual.valor === 'resuelto') ? 0.6 : 1.0
+        }).bindPopup(popup);
 
         this.capaReportes.addLayer(marker);
         return marker;
@@ -263,9 +373,6 @@ class UIController {
         this.inputDescripcion   = document.getElementById('inputDescripcion');
         this.inputAdjuntos      = document.getElementById('inputAdjuntos');
         this.adjuntosTexto      = document.getElementById('adjuntosTexto');
-        this.btnStatusY         = document.getElementById('btnStatusY');
-        this.btnStatusN         = document.getElementById('btnStatusN');
-        this.inputStatus        = document.getElementById('inputStatus');
         this.btnEnviarReporte   = document.getElementById('btnEnviarReporte');
 
         /* Configuración visual por categoría */
@@ -309,7 +416,6 @@ class UIController {
         this._registrarEventoIncidencia();
         this._registrarEventoClickMapa();
         this._registrarEventosModal();
-        this._registrarEventosStatus();
         this._registrarEventosTabsTipo();
 
         console.log('[UIController] Eventos de interfaz y clicks de mapa registrados.');
@@ -521,102 +627,157 @@ class UIController {
 
     /**
      * _registrarEventoTrafico() [privado]
-     * Botón de reporte rápido de Tráfico.
+     * Botón de reporte rápido de Tráfico: utiliza GPS para ubicar a la persona.
      */
     _registrarEventoTrafico() {
         if (!this.btnTrafico) return;
 
         this.btnTrafico.addEventListener('click', () => {
-            const centro = this.mapa.getCenter();
-            if (this.mapController) {
-                this.mapController.colocarPunto(centro);
-            }
-            this._abrirModal('trafico', centro);
+            this._iniciarReporteRapido('trafico');
         });
     }
 
     /**
      * _registrarEventoIncidencia() [privado]
-     * Botón de reporte rápido de Incidencias.
+     * Botón de reporte rápido de Incidencias: utiliza GPS para ubicar a la persona.
      */
     _registrarEventoIncidencia() {
         if (!this.btnIncidencia) return;
 
         this.btnIncidencia.addEventListener('click', () => {
+            this._iniciarReporteRapido('incidencia');
+        });
+    }
+
+    /**
+     * _iniciarReporteRapido(tipo) [privado]
+     * Obtiene la ubicación GPS actual del usuario mediante navigator.geolocation,
+     * coloca el MAP POINT animado en dicha posición, centra el mapa y abre el modal.
+     * Si el permiso es denegado o falla, recurre de forma segura al centro del mapa.
+     *
+     * @param {'trafico'|'incidencia'} tipo
+     */
+    _iniciarReporteRapido(tipo) {
+        const btn = (tipo === 'trafico') ? this.btnTrafico : this.btnIncidencia;
+        const contenidoOriginal = btn ? btn.innerHTML : '';
+
+        /* Comprobación de soporte de Geolocation API */
+        if (!navigator.geolocation) {
+            console.warn('[UIController] Geolocalización no soportada en este navegador.');
+            this._mostrarFeedback('Geolocalización no soportada. Usando centro del mapa.', 'error');
             const centro = this.mapa.getCenter();
             if (this.mapController) {
                 this.mapController.colocarPunto(centro);
             }
-            this._abrirModal('incidencia', centro);
-        });
+            this._abrirModal(tipo, centro);
+            return;
+        }
+
+        /* Estado visual de carga en el botón pulsado */
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.75';
+            btn.innerHTML = `
+                <svg class="w-7 h-7 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+            `;
+        }
+
+        this._mostrarFeedback('Obteniendo tu ubicación actual por GPS...', 'info');
+
+        const restaurarBoton = () => {
+            if (btn) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerHTML = contenidoOriginal;
+            }
+        };
+
+        navigator.geolocation.getCurrentPosition(
+            (posicion) => {
+                restaurarBoton();
+                const lat = posicion.coords.latitude;
+                const lng = posicion.coords.longitude;
+                const latlng = L.latLng(lat, lng);
+
+                console.log(`[UIController] Geolocalización GPS obtenida → Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`);
+
+                /* Centra y traslada el mapa a las coordenadas reales */
+                this.mapa.flyTo(latlng, 16, { animate: true, duration: 1.0 });
+
+                /* Ubica el marcador animado MAP POINT en la ubicación de la persona */
+                if (this.mapController) {
+                    this.mapController.colocarPunto(latlng);
+                }
+
+                /* Abre el formulario de reporte con las coordenadas de la persona */
+                this._abrirModal(tipo, latlng);
+            },
+            (error) => {
+                restaurarBoton();
+                console.warn('[UIController] Error o rechazo de GPS:', error.message);
+
+                let mensaje = 'No se pudo obtener tu ubicación actual. Usando centro del mapa.';
+                if (error.code === error.PERMISSION_DENIED) {
+                    mensaje = 'Permiso de ubicación denegado. Usando centro del mapa.';
+                } else if (error.code === error.TIMEOUT) {
+                    mensaje = 'Tiempo de espera agotado al consultar GPS. Usando centro del mapa.';
+                }
+
+                this._mostrarFeedback(mensaje, 'error');
+
+                const centro = this.mapa.getCenter();
+                if (this.mapController) {
+                    this.mapController.colocarPunto(centro);
+                }
+                this._abrirModal(tipo, centro);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 8000,
+                maximumAge: 10000
+            }
+        );
     }
 
     /**
-     * _registrarEventosTabsTipo() [privado]
-     * Permite alternar entre "Incidencia Vial" y "Tráfico" dentro del modal.
+     * actualizarEstadoReporte(id, nuevoEstado)
+     * Persiste la actualización de estado (activo/resuelto) en el backend (PATCH /api/reportes/:id/estado)
+     * cuando el usuario pulsa Y / N en el popup del marcador en el mapa.
+     *
+     * @param {number|string} id - ID del reporte (id_anonimo)
+     * @param {'activo'|'resuelto'} nuevoEstado
+     * @returns {Promise<boolean>}
      */
-    _registrarEventosTabsTipo() {
-        if (this.tabTipoIncidencia) {
-            this.tabTipoIncidencia.addEventListener('click', () => this._cambiarTipo('incidencia'));
+    async actualizarEstadoReporte(id, nuevoEstado) {
+        if (!id) {
+            console.warn('[UIController] No se puede actualizar reporte sin ID.');
+            return false;
         }
-        if (this.tabTipoTrafico) {
-            this.tabTipoTrafico.addEventListener('click', () => this._cambiarTipo('trafico'));
+
+        try {
+            const res = await fetch(`/api/reportes/${id}/estado`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: nuevoEstado })
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.mensaje || `HTTP ${res.status}`);
+            }
+
+            const labelEstado = (nuevoEstado === 'activo') ? 'Activo' : 'Resuelto';
+            this._mostrarFeedback(`Reporte #${id} marcado como "${labelEstado}"`, 'exito');
+            console.log(`[UIController] Estado de reporte #${id} actualizado en BD a: ${nuevoEstado}`);
+            return true;
+        } catch (error) {
+            console.error('[UIController] Error al actualizar estado del reporte:', error.message);
+            this._mostrarFeedback(`Error al actualizar estado: ${error.message}`, 'error');
+            throw error;
         }
-    }
-
-    /**
-     * _cambiarTipo(tipo) [privado]
-     * Actualiza el tipo activo y el diseño visual del modal.
-     */
-    _cambiarTipo(tipo) {
-        this._tipoActivo = tipo;
-        const cfg = this.tiposReporte[tipo];
-        if (!cfg) return;
-
-        /* Actualiza cabecera */
-        this.modalHeader.style.backgroundColor = cfg.color;
-        this.modalTitle.textContent            = cfg.label;
-        this.btnEnviarReporte.style.backgroundColor = cfg.colorBtn;
-
-        this.modalIcon.innerHTML = `
-            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="${cfg.svgPath}"/>
-            </svg>`;
-
-        /* Actualiza tabs visuales */
-        if (tipo === 'incidencia') {
-            this.tabTipoIncidencia.className =
-                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-red-50 text-red-700 border-red-300';
-            this.tabTipoTrafico.className =
-                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-gray-100 text-gray-500 border-gray-200';
-        } else {
-            this.tabTipoTrafico.className =
-                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 border-amber-300';
-            this.tabTipoIncidencia.className =
-                'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 bg-gray-100 text-gray-500 border-gray-200';
-        }
-    }
-
-    /**
-     * _registrarEventosStatus() [privado]
-     * Gestiona los botones interactivos de STATUS:
-     *   - Y = Activo / Sí
-     *   - N = Resuelto / Inactivo / No
-     */
-    _registrarEventosStatus() {
-        if (!this.btnStatusY || !this.btnStatusN || !this.inputStatus) return;
-
-        this.btnStatusY.addEventListener('click', () => {
-            this.inputStatus.value = 'Y';
-            this.btnStatusY.classList.add('active-y');
-            this.btnStatusN.classList.remove('active-n');
-        });
-
-        this.btnStatusN.addEventListener('click', () => {
-            this.inputStatus.value = 'N';
-            this.btnStatusN.classList.add('active-n');
-            this.btnStatusY.classList.remove('active-y');
-        });
     }
 
     /**
@@ -673,13 +834,6 @@ class UIController {
         /* Aplica categoría y colores */
         this._cambiarTipo(tipo || 'incidencia');
 
-        /* Restablece Status por defecto a 'Y' (Activo) */
-        if (this.inputStatus && this.btnStatusY && this.btnStatusN) {
-            this.inputStatus.value = 'Y';
-            this.btnStatusY.classList.add('active-y');
-            this.btnStatusN.classList.remove('active-n');
-        }
-
         /* Limpia campos de texto */
         this.reportForm.reset();
         this.adjuntosTexto.textContent = 'Toca para adjuntar foto o video';
@@ -718,10 +872,10 @@ class UIController {
     /**
      * _enviarReporte() [privado]
      * Guarda el reporte en la base de datos a través de POST /api/reportes.
+     * Por defecto, todo nuevo reporte nace con estado "activo".
      */
     async _enviarReporte() {
         const coords = this._coordenadasActivas || this.mapa.getCenter();
-        const statusValue = this.inputStatus ? this.inputStatus.value : 'Y';
 
         const payload = {
             tipo:        this._tipoActivo,
@@ -729,7 +883,7 @@ class UIController {
             descripcion: this.inputDescripcion.value.trim(),
             latitud:     coords.lat.toFixed(6),
             longitud:    coords.lng.toFixed(6),
-            estado:      statusValue === 'Y' ? 'activo' : 'resuelto'
+            estado:      'activo' /* El status se administra posteriormente en el mapa */
         };
 
         /* Bloquea el botón de envío y da feedback */
@@ -752,7 +906,7 @@ class UIController {
             console.log(`[UIController] Reporte guardado en Base de Datos (Supabase) → ID: ${datos.id}`);
             this._reporteGuardadoExito = true;
 
-            /* Remueve el MAP POINT temporal y agrega el marcador definitivo */
+            /* Remueve el MAP POINT temporal y agrega el marcador definitivo con interactividad de estado */
             if (this.mapController) {
                 this.mapController.removerPunto();
                 this.mapController.agregarMarcadorConfirmado({
@@ -777,12 +931,13 @@ class UIController {
 
     /**
      * _mostrarFeedback(mensaje, tipo) [privado]
+     * Notificación toast flotante con soporte para estados de éxito, info y error.
      */
     _mostrarFeedback(mensaje, tipo) {
         const anterior = document.getElementById('toastFeedback');
         if (anterior) anterior.remove();
 
-        const color = tipo === 'exito' ? '#16a34a' : '#dc2626';
+        const color = (tipo === 'exito') ? '#16a34a' : (tipo === 'info') ? '#003366' : '#dc2626';
 
         const toast = document.createElement('div');
         toast.id = 'toastFeedback';
@@ -841,7 +996,12 @@ class PlayaAlertaApp {
         /* 2. Pasa tanto el mapa como el MapController al UIController */
         this.uiController = new UIController(mapaLeaflet, this.mapController);
 
-        /* 3. Registra eventos de UI y clicks del mapa */
+        /* 3. Conecta el callback para actualizar estado en BD desde los popups del mapa */
+        this.mapController.onStatusChange = (id, nuevoEstado) => {
+            return this.uiController.actualizarEstadoReporte(id, nuevoEstado);
+        };
+
+        /* 4. Registra eventos de UI y clicks del mapa */
         this.uiController.inicializar();
 
         console.log('[PlayaAlertaApp] Aplicación lista.');

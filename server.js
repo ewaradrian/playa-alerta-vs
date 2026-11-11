@@ -385,6 +385,80 @@ apiRouter.post('/reportes', async (req, res) => {
 });
 
 
+/* ── PATCH /api/reportes/:id/estado ──────────────────────── */
+/**
+ * Actualiza el campo "estado" de un reporte existente.
+ * Body esperado: { "estado": "activo" | "resuelto" }
+ */
+apiRouter.patch('/reportes/:id/estado', async (req, res) => {
+    const id       = parseInt(req.params.id, 10);
+    let { estado } = req.body;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ ok: false, mensaje: 'ID de reporte inválido.' });
+    }
+
+    /* Normaliza alias Y / N hacia activo / resuelto */
+    if (estado === 'Y') estado = 'activo';
+    if (estado === 'N') estado = 'resuelto';
+
+    const estadosValidos = ['activo', 'resuelto'];
+    if (!estadosValidos.includes(estado)) {
+        return res.status(400).json({
+            ok: false,
+            mensaje: `Estado inválido. Usa: ${estadosValidos.join(' | ')}`
+        });
+    }
+
+    /* 1. Actualizar en Supabase */
+    if (supabase) {
+        try {
+            const { error } = await supabase
+                .from('ReporteAnonimo')
+                .update({ estado })
+                .eq('id_anonimo', id);
+
+            if (error) {
+                console.error('[Supabase] Error al actualizar estado:', error.message);
+                throw error;
+            }
+
+            console.log(`[API Supabase] Reporte ${id} → estado: ${estado}`);
+            return res.json({ ok: true, id, estado });
+
+        } catch (error) {
+            return res.status(500).json({
+                ok: false,
+                mensaje: `Error al actualizar en Supabase: ${error.message}`
+            });
+        }
+    }
+
+    /* 2. Fallback: actualizar en MySQL */
+    if (mysqlPool) {
+        let conn;
+        try {
+            conn = await mysqlPool.getConnection();
+            await conn.execute(
+                'UPDATE ReporteAnonimo SET estado = ? WHERE id_anonimo = ?',
+                [estado, id]
+            );
+            return res.json({ ok: true, id, estado });
+        } catch (error) {
+            console.error('[MySQL Fallback] Error al actualizar estado:', error.message);
+            return res.status(500).json({ ok: false, mensaje: 'Error al actualizar en BD.' });
+        } finally {
+            if (conn) conn.release();
+        }
+    }
+
+    return res.status(503).json({
+        ok: false,
+        mensaje: 'Base de datos no configurada.'
+    });
+});
+
+
 /* ── Montar rutas API en /api y en la raíz (compatibilidad Vercel) ── */
 app.use('/api', apiRouter);
 
