@@ -650,6 +650,24 @@ class UIController {
     }
 
     /**
+     * _registrarEventosTabsTipo() [privado]
+     * Permite cambiar la categoría del reporte desde las pestañas del modal.
+     */
+    _registrarEventosTabsTipo() {
+        if (this.tabTipoIncidencia) {
+            this.tabTipoIncidencia.addEventListener('click', () => {
+                this._cambiarTipo('incidencia');
+            });
+        }
+
+        if (this.tabTipoTrafico) {
+            this.tabTipoTrafico.addEventListener('click', () => {
+                this._cambiarTipo('trafico');
+            });
+        }
+    }
+
+    /**
      * _iniciarReporteRapido(tipo) [privado]
      * Obtiene la ubicación GPS actual del usuario mediante navigator.geolocation,
      * coloca el MAP POINT animado en dicha posición, centra el mapa y abre el modal.
@@ -777,6 +795,50 @@ class UIController {
             console.error('[UIController] Error al actualizar estado del reporte:', error.message);
             this._mostrarFeedback(`Error al actualizar estado: ${error.message}`, 'error');
             throw error;
+        }
+    }
+
+    /**
+     * _cambiarTipo(tipo) [privado]
+     * Actualiza la categoría seleccionada y el estilo correspondiente del formulario.
+     *
+     * @param {'trafico'|'incidencia'} tipo
+     */
+    _cambiarTipo(tipo) {
+        const configuracion = this.tiposReporte[tipo];
+        if (!configuracion) return;
+
+        this._tipoActivo = tipo;
+        this.modalTitle.textContent = configuracion.label;
+        this.modalHeader.style.backgroundColor = configuracion.color;
+        this.modalIcon.style.backgroundColor = configuracion.colorBtn;
+        this.modalIcon.innerHTML = `
+            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="${configuracion.svgPath}"></path>
+            </svg>
+        `;
+        this.btnEnviarReporte.style.backgroundColor = configuracion.colorBtn;
+
+        for (const input of [this.inputTitulo, this.inputDescripcion]) {
+            input.classList.remove('focus:ring-amber-400', 'focus:ring-red-400');
+            input.classList.add(configuracion.ring);
+        }
+
+        const clasesActivas = tipo === 'trafico'
+            ? ['bg-amber-50', 'text-amber-700', 'border-amber-300']
+            : ['bg-red-50', 'text-red-700', 'border-red-300'];
+        const clasesInactivas = ['bg-gray-100', 'text-gray-500', 'border-gray-200'];
+        const otrasClasesActivas = tipo === 'trafico'
+            ? ['bg-red-50', 'text-red-700', 'border-red-300']
+            : ['bg-amber-50', 'text-amber-700', 'border-amber-300'];
+        const tabActivo = tipo === 'trafico' ? this.tabTipoTrafico : this.tabTipoIncidencia;
+        const tabInactivo = tipo === 'trafico' ? this.tabTipoIncidencia : this.tabTipoTrafico;
+
+        if (tabActivo && tabInactivo) {
+            tabActivo.classList.remove(...clasesInactivas, ...otrasClasesActivas);
+            tabActivo.classList.add(...clasesActivas);
+            tabInactivo.classList.remove(...clasesActivas, ...otrasClasesActivas);
+            tabInactivo.classList.add(...clasesInactivas);
         }
     }
 
