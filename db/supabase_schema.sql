@@ -122,7 +122,7 @@ DROP POLICY IF EXISTS "Permitir insercion de ZonaPlaya" ON "ZonaPlaya";
 CREATE POLICY "Permitir insercion de ZonaPlaya" 
     ON "ZonaPlaya" FOR INSERT WITH CHECK (true);
 
--- 3. Políticas para ReporteAnonimo: lectura e inserción pública
+-- 3. Políticas para ReporteAnonimo: lectura, inserción, actualización y eliminación
 DROP POLICY IF EXISTS "Permitir lectura publica de ReporteAnonimo" ON "ReporteAnonimo";
 CREATE POLICY "Permitir lectura publica de ReporteAnonimo" 
     ON "ReporteAnonimo" FOR SELECT USING (true);
@@ -130,6 +130,14 @@ CREATE POLICY "Permitir lectura publica de ReporteAnonimo"
 DROP POLICY IF EXISTS "Permitir insercion publica de ReporteAnonimo" ON "ReporteAnonimo";
 CREATE POLICY "Permitir insercion publica de ReporteAnonimo" 
     ON "ReporteAnonimo" FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir actualizacion de ReporteAnonimo" ON "ReporteAnonimo";
+CREATE POLICY "Permitir actualizacion de ReporteAnonimo" 
+    ON "ReporteAnonimo" FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Permitir eliminacion de ReporteAnonimo" ON "ReporteAnonimo";
+CREATE POLICY "Permitir eliminacion de ReporteAnonimo" 
+    ON "ReporteAnonimo" FOR DELETE USING (true);
 
 -- 4. Políticas para Reporte: lectura pública
 DROP POLICY IF EXISTS "Permitir lectura publica de Reporte" ON "Reporte";

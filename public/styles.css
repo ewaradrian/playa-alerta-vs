@@ -291,19 +291,28 @@ body {
     opacity: 1;
 }
 
-/* Scrollbar sutil para el historial de reportes */
-#historialReportesLista::-webkit-scrollbar {
-    width: 5px;
+/* Scrollbar sutil para el historial de reportes y tabla admin */
+#historialReportesLista::-webkit-scrollbar,
+#viewAdminPanel .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
 }
-#historialReportesLista::-webkit-scrollbar-track {
+#historialReportesLista::-webkit-scrollbar-track,
+#viewAdminPanel .overflow-y-auto::-webkit-scrollbar-track {
     background: transparent;
 }
-#historialReportesLista::-webkit-scrollbar-thumb {
+#historialReportesLista::-webkit-scrollbar-thumb,
+#viewAdminPanel .overflow-y-auto::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
     border-radius: 999px;
 }
-#historialReportesLista::-webkit-scrollbar-thumb:hover {
+#historialReportesLista::-webkit-scrollbar-thumb:hover,
+#viewAdminPanel .overflow-y-auto::-webkit-scrollbar-thumb:hover {
     background-color: #94a3b8;
+}
+
+#adminCardContainer {
+    transition: opacity 0.22s ease, transform 0.22s ease, max-width 0.25s ease;
 }
 
 

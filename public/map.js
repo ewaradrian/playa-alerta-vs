@@ -61,6 +61,9 @@ class MapController {
         /* Grupo de capas para los reportes confirmados en el mapa */
         this.capaReportes = null;
 
+        /* Mapa indexado por ID para búsqueda y eliminación directa de marcadores */
+        this.marcadoresPorId = new Map();
+
         /* Callback para notificar cambios de estado (id_anonimo, nuevoEstado) */
         this.onStatusChange = null;
     }
@@ -299,7 +302,32 @@ class MapController {
         }).bindPopup(popup);
 
         this.capaReportes.addLayer(marker);
+
+        /* Guarda referencia en el mapa indexado por ID para manipulación o eliminación */
+        if (reporte.id_anonimo) {
+            this.marcadoresPorId.set(Number(reporte.id_anonimo), marker);
+        }
+
         return marker;
+    }
+
+    /**
+     * removerMarcador(id)
+     * Remueve del mapa el marcador correspondiente al ID de reporte eliminado.
+     *
+     * @param {number|string} id - ID del reporte (id_anonimo)
+     * @returns {boolean} - true si se encontró y eliminó el marcador
+     */
+    removerMarcador(id) {
+        const idNum = Number(id);
+        const marker = this.marcadoresPorId.get(idNum);
+        if (marker) {
+            this.capaReportes.removeLayer(marker);
+            this.marcadoresPorId.delete(idNum);
+            console.log(`[MapController] Marcador #${id} removido del mapa.`);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -358,14 +386,32 @@ class UIController {
         this.tabTipoIncidencia  = document.getElementById('tabTipoIncidencia');
         this.tabTipoTrafico     = document.getElementById('tabTipoTrafico');
 
-        /* Elementos del modal de perfil de usuario */
+        /* Elementos del modal de Administrador y Gestión de Reportes */
         this.userProfileModal         = document.getElementById('userProfileModal');
         this.perfilOverlay            = document.getElementById('perfilOverlay');
+        this.adminCardContainer       = document.getElementById('adminCardContainer');
+        this.viewAdminLogin           = document.getElementById('viewAdminLogin');
+        this.viewAdminPanel           = document.getElementById('viewAdminPanel');
+        this.formAdminLogin           = document.getElementById('formAdminLogin');
+        this.inputAdminPassword       = document.getElementById('inputAdminPassword');
+        this.adminLoginError          = document.getElementById('adminLoginError');
+        this.btnAdminRecargar         = document.getElementById('btnAdminRecargar');
+        this.btnAdminLogout           = document.getElementById('btnAdminLogout');
+        this.adminReportesTbody       = document.getElementById('adminReportesTbody');
+        this.inputAdminBuscar         = document.getElementById('inputAdminBuscar');
+        this.adminConteoTotal         = document.getElementById('adminConteoTotal');
+        this.adminConteoActivos       = document.getElementById('adminConteoActivos');
+        this.adminConteoResueltos     = document.getElementById('adminConteoResueltos');
+
+        /* Botones de cierre del modal admin */
         this.btnCerrarPerfil          = document.getElementById('btnCerrarPerfil');
-        this.btnCerrarPerfilSecundario= document.getElementById('btnCerrarPerfilSecundario');
-        this.historialReportesLista   = document.getElementById('historialReportesLista');
-        this.historialContador        = document.getElementById('historialContador');
-        this.btnRecargarHistorial     = document.getElementById('btnRecargarHistorial');
+        this.btnCerrarAdminPanel      = document.getElementById('btnCerrarAdminPanel');
+        this.btnCerrarAdminSecundario = document.getElementById('btnCerrarAdminSecundario');
+        this.btnCancelarLogin         = document.getElementById('btnCancelarLogin');
+
+        /* Estado de autenticación del administrador */
+        this._esAdmin                 = sessionStorage.getItem('playa_alerta_admin') === 'true';
+        this._listaReportesAdmin      = [];
 
         /* Campos del formulario */
         this.reportForm         = document.getElementById('reportForm');
@@ -411,7 +457,7 @@ class UIController {
      */
     inicializar() {
         this._registrarEventoUsuario();
-        this._registrarEventosPerfil();
+        this._registrarEventosAdmin();
         this._registrarEventoTrafico();
         this._registrarEventoIncidencia();
         this._registrarEventoClickMapa();
@@ -445,48 +491,82 @@ class UIController {
 
     /**
      * _registrarEventoUsuario() [privado]
-     * Al hacer click en el avatar, despliega el panel de perfil de usuario.
+     * Al hacer click en el avatar, despliega el acceso administrativo.
      */
     _registrarEventoUsuario() {
         if (!this.btnUsuario) return;
 
         this.btnUsuario.addEventListener('click', () => {
-            console.log('[UIController] Botón de usuario presionado. Abriendo perfil...');
-            this._abrirPerfil();
+            console.log('[UIController] Botón de usuario/admin presionado.');
+            this._abrirModalAdmin();
         });
     }
 
     /**
-     * _registrarEventosPerfil() [privado]
-     * Listeners para cerrar o actualizar el modal del perfil.
+     * _registrarEventosAdmin() [privado]
+     * Configura escuchadores para login con clave "VIALIDADES", búsqueda en vivo,
+     * recarga y cierre del panel administrativo.
      */
-    _registrarEventosPerfil() {
-        if (this.btnCerrarPerfil) {
-            this.btnCerrarPerfil.addEventListener('click', () => this._cerrarPerfil());
-        }
-        if (this.btnCerrarPerfilSecundario) {
-            this.btnCerrarPerfilSecundario.addEventListener('click', () => this._cerrarPerfil());
-        }
-        if (this.perfilOverlay) {
-            this.perfilOverlay.addEventListener('click', () => this._cerrarPerfil());
-        }
-        if (this.btnRecargarHistorial) {
-            this.btnRecargarHistorial.addEventListener('click', () => this._cargarHistorialReportes());
+    _registrarEventosAdmin() {
+        /* Envío de formulario de contraseña */
+        if (this.formAdminLogin) {
+            this.formAdminLogin.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this._procesarLoginAdmin();
+            });
         }
 
-        /* Cerrar con Escape */
+        /* Botón de recargar en tabla de administración */
+        if (this.btnAdminRecargar) {
+            this.btnAdminRecargar.addEventListener('click', () => {
+                this._cargarTablaAdmin();
+            });
+        }
+
+        /* Botón de cerrar sesión */
+        if (this.btnAdminLogout) {
+            this.btnAdminLogout.addEventListener('click', () => {
+                this._logoutAdmin();
+            });
+        }
+
+        /* Buscador en vivo de reportes */
+        if (this.inputAdminBuscar) {
+            this.inputAdminBuscar.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                this._filtrarReportesAdmin(query);
+            });
+        }
+
+        /* Botones para cerrar el modal administrativo */
+        const botonesCerrar = [
+            this.btnCerrarPerfil,
+            this.btnCerrarAdminPanel,
+            this.btnCerrarAdminSecundario,
+            this.btnCancelarLogin,
+            this.perfilOverlay
+        ];
+
+        botonesCerrar.forEach((btn) => {
+            if (btn) {
+                btn.addEventListener('click', () => this._cerrarModalAdmin());
+            }
+        });
+
+        /* Tecla Escape para salir del modal */
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.userProfileModal && !this.userProfileModal.classList.contains('hidden')) {
-                this._cerrarPerfil();
+                this._cerrarModalAdmin();
             }
         });
     }
 
     /**
-     * _abrirPerfil() [privado]
-     * Muestra el modal de perfil con animación y carga el historial de reportes.
+     * _abrirModalAdmin() [privado]
+     * Abre el modal y despliega la vista de Login (si no está autenticado)
+     * o directamente el Panel de Administración (si ya ingresó "VIALIDADES").
      */
-    _abrirPerfil() {
+    _abrirModalAdmin() {
         if (!this.userProfileModal) return;
 
         this.userProfileModal.classList.remove('hidden');
@@ -494,13 +574,48 @@ class UIController {
             this.userProfileModal.classList.add('modal-visible');
         });
 
-        this._cargarHistorialReportes();
+        if (this._esAdmin) {
+            this._mostrarVistaAdminPanel();
+            this._cargarTablaAdmin();
+        } else {
+            this._mostrarVistaLogin();
+        }
     }
 
     /**
-     * _cerrarPerfil() [privado]
+     * _mostrarVistaLogin() [privado]
      */
-    _cerrarPerfil() {
+    _mostrarVistaLogin() {
+        if (this.adminCardContainer) {
+            this.adminCardContainer.classList.remove('max-w-4xl');
+            this.adminCardContainer.classList.add('max-w-md');
+        }
+        if (this.viewAdminLogin) this.viewAdminLogin.classList.remove('hidden');
+        if (this.viewAdminPanel) this.viewAdminPanel.classList.add('hidden');
+        if (this.adminLoginError) this.adminLoginError.classList.add('hidden');
+        if (this.inputAdminPassword) {
+            this.inputAdminPassword.value = '';
+            setTimeout(() => this.inputAdminPassword.focus(), 120);
+        }
+    }
+
+    /**
+     * _mostrarVistaAdminPanel() [privado]
+     */
+    _mostrarVistaAdminPanel() {
+        if (this.adminCardContainer) {
+            this.adminCardContainer.classList.remove('max-w-md');
+            this.adminCardContainer.classList.add('max-w-4xl');
+        }
+        if (this.viewAdminLogin) this.viewAdminLogin.classList.add('hidden');
+        if (this.viewAdminPanel) this.viewAdminPanel.classList.remove('hidden');
+        if (this.inputAdminBuscar) this.inputAdminBuscar.value = '';
+    }
+
+    /**
+     * _cerrarModalAdmin() [privado]
+     */
+    _cerrarModalAdmin() {
         if (!this.userProfileModal) return;
 
         this.userProfileModal.classList.remove('modal-visible');
@@ -508,117 +623,327 @@ class UIController {
             this.userProfileModal.classList.add('hidden');
         }, 200);
 
-        console.log('[UIController] Perfil de usuario cerrado.');
+        console.log('[UIController] Modal administrativo cerrado.');
     }
 
     /**
-     * _cargarHistorialReportes() [privado]
-     * Consulta los reportes en la base de datos para renderizarlos en la lista de REPORT HISTORY.
+     * _procesarLoginAdmin() [privado]
+     * Valida la contraseña 'VIALIDADES' (insensible a mayúsculas/minúsculas).
      */
-    async _cargarHistorialReportes() {
-        if (!this.historialReportesLista) return;
+    _procesarLoginAdmin() {
+        if (!this.inputAdminPassword) return;
 
-        this.historialReportesLista.innerHTML = `
-            <div class="py-6 flex flex-col items-center justify-center text-gray-400 gap-2">
-                <svg class="w-6 h-6 animate-spin text-[#003366]" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                </svg>
-                <span class="text-xs font-semibold text-gray-500">Cargando historial de reportes...</span>
-            </div>
+        const clave = this.inputAdminPassword.value.trim().toUpperCase();
+        const claveAutorizada = 'VIALIDADES';
+
+        if (clave === claveAutorizada) {
+            this._esAdmin = true;
+            sessionStorage.setItem('playa_alerta_admin', 'true');
+
+            if (this.adminLoginError) this.adminLoginError.classList.add('hidden');
+            this.inputAdminPassword.value = '';
+
+            this._mostrarVistaAdminPanel();
+            this._cargarTablaAdmin();
+            this._mostrarFeedback('¡Acceso concedido al Panel de Administración!', 'exito');
+        } else {
+            if (this.adminLoginError) {
+                this.adminLoginError.classList.remove('hidden');
+            }
+            this.inputAdminPassword.focus();
+            this.inputAdminPassword.select();
+        }
+    }
+
+    /**
+     * _logoutAdmin() [privado]
+     * Cierra la sesión de administrador.
+     */
+    _logoutAdmin() {
+        this._esAdmin = false;
+        sessionStorage.removeItem('playa_alerta_admin');
+        this._mostrarVistaLogin();
+        this._mostrarFeedback('Sesión de administración finalizada.', 'info');
+    }
+
+    /**
+     * _cargarTablaAdmin() [privado]
+     * Consulta GET /api/reportes para poblar la tabla con todos los registros.
+     */
+    async _cargarTablaAdmin() {
+        if (!this.adminReportesTbody) return;
+
+        this.adminReportesTbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="py-12 text-center text-gray-400">
+                    <div class="flex flex-col items-center justify-center gap-2">
+                        <svg class="w-6 h-6 animate-spin text-[#003366]" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        <span class="text-xs font-semibold text-gray-500">Consultando reportes en la base de datos...</span>
+                    </div>
+                </td>
+            </tr>
         `;
 
         try {
             const res = await fetch('/api/reportes');
             const data = await res.json();
 
-            if (!data.ok || !Array.isArray(data.reportes) || data.reportes.length === 0) {
-                if (this.historialContador) this.historialContador.textContent = '0';
-                this.historialReportesLista.innerHTML = `
-                    <div class="p-6 text-center text-gray-400 flex flex-col items-center gap-2 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                        <svg class="w-8 h-8 opacity-40 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        <p class="text-xs font-bold text-gray-600">No hay reportes registrados aún</p>
-                        <p class="text-[11px] text-gray-400">Haz click en el mapa para reportar una incidencia o tráfico.</p>
-                    </div>
-                `;
-                return;
+            if (!data.ok || !Array.isArray(data.reportes)) {
+                throw new Error(data.mensaje || 'Error en respuesta de base de datos');
             }
 
-            if (this.historialContador) {
-                this.historialContador.textContent = data.reportes.length;
-            }
-
-            this.historialReportesLista.innerHTML = '';
-
-            data.reportes.forEach((rep) => {
-                const esTrafico = (rep.categoria === 'Tráfico' || rep.tipo === 'trafico');
-                const esActivo  = (rep.estado === 'activo' || rep.estado === 'Y');
-
-                const item = document.createElement('div');
-                item.className = 'p-3 bg-gray-50 hover:bg-gray-100/90 rounded-2xl border border-gray-100 transition-all flex items-start justify-between gap-2.5';
-
-                item.innerHTML = `
-                    <div class="flex items-start gap-2.5 min-w-0">
-                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm ${esTrafico ? 'bg-amber-500' : 'bg-red-500'}">
-                            ${esTrafico
-                                ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v10c0 2.76 2.24 5 5 5s5-2.24 5-5V7c0-2.76-2.24-5-5-5zm0 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11.5 12 11.5zm0-5c-.83 0-1.5-.67-1.5-1.5S11.17 4 12 4s1.5.67 1.5 1.5S12.83 6.5 12 6.5z"/></svg>'
-                                : '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>'
-                            }
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-1.5 flex-wrap">
-                                <h4 class="font-extrabold text-xs text-gray-800 truncate">
-                                    ${rep.titulo || 'Sin título'}
-                                </h4>
-                                <span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">
-                                    ${esActivo ? 'Activo' : 'Resuelto'}
-                                </span>
-                            </div>
-                            <p class="text-[11px] text-gray-500 line-clamp-1 mt-0.5">
-                                ${rep.descripcion || 'Sin descripción detallada'}
-                            </p>
-                            <span class="text-[10px] text-gray-400 font-mono">
-                                📍 ${Number(rep.latitud).toFixed(4)}, ${Number(rep.longitud).toFixed(4)}
-                            </span>
-                        </div>
-                    </div>
-
-                    <button type="button"
-                            class="btn-ver-mapa flex-shrink-0 px-2.5 py-1 text-[11px] font-extrabold text-[#003366] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                            title="Centrar en el mapa">
-                        Ver
-                    </button>
-                `;
-
-                const btnVer = item.querySelector('.btn-ver-mapa');
-                if (btnVer) {
-                    btnVer.addEventListener('click', () => {
-                        this._centrarEnReporte(parseFloat(rep.latitud), parseFloat(rep.longitud));
-                    });
-                }
-
-                this.historialReportesLista.appendChild(item);
-            });
+            this._listaReportesAdmin = data.reportes;
+            this._actualizarConteosAdmin(this._listaReportesAdmin);
+            this._renderizarTablaAdmin(this._listaReportesAdmin);
 
         } catch (error) {
-            console.error('[UIController] Error al cargar historial:', error);
-            this.historialReportesLista.innerHTML = `
-                <div class="p-4 text-center text-red-500 text-xs">
-                    Error al cargar los reportes desde la base de datos.
-                </div>
+            console.error('[UIController] Error al cargar reportes:', error);
+            this.adminReportesTbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="py-8 text-center text-red-500 text-xs font-bold">
+                        Error al cargar reportes: ${error.message}
+                    </td>
+                </tr>
             `;
         }
     }
 
     /**
+     * _actualizarConteosAdmin(reportes) [privado]
+     */
+    _actualizarConteosAdmin(reportes) {
+        const total = reportes.length;
+        const activos = reportes.filter(r => r.estado === 'activo' || r.estado === 'Y').length;
+        const resueltos = total - activos;
+
+        if (this.adminConteoTotal) {
+            this.adminConteoTotal.textContent = `${total} ${total === 1 ? 'reporte' : 'reportes'}`;
+        }
+        if (this.adminConteoActivos) {
+            this.adminConteoActivos.textContent = `${activos} activos`;
+        }
+        if (this.adminConteoResueltos) {
+            this.adminConteoResueltos.textContent = `${resueltos} resueltos`;
+        }
+    }
+
+    /**
+     * _filtrarReportesAdmin(query) [privado]
+     */
+    _filtrarReportesAdmin(query) {
+        if (!query) {
+            this._renderizarTablaAdmin(this._listaReportesAdmin);
+            return;
+        }
+
+        const filtrados = this._listaReportesAdmin.filter((rep) => {
+            const id = String(rep.id_anonimo || '');
+            const tit = String(rep.titulo || '').toLowerCase();
+            const desc = String(rep.descripcion || '').toLowerCase();
+            const cat = String(rep.categoria || '').toLowerCase();
+            const est = String(rep.estado || '').toLowerCase();
+
+            return id.includes(query) ||
+                   tit.includes(query) ||
+                   desc.includes(query) ||
+                   cat.includes(query) ||
+                   est.includes(query);
+        });
+
+        this._renderizarTablaAdmin(filtrados);
+    }
+
+    /**
+     * _renderizarTablaAdmin(reportes) [privado]
+     * Construye cada fila de la tabla con datos, botones de cambio de estado y eliminación.
+     */
+    _renderizarTablaAdmin(reportes) {
+        if (!this.adminReportesTbody) return;
+
+        if (!reportes || reportes.length === 0) {
+            this.adminReportesTbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="py-12 text-center text-gray-400">
+                        <div class="flex flex-col items-center justify-center gap-2">
+                            <svg class="w-8 h-8 opacity-40 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span class="text-xs font-bold text-gray-600">No se encontraron reportes</span>
+                            <span class="text-[11px] text-gray-400">Aún no hay reportes registrados o ninguno coincide con la búsqueda.</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        this.adminReportesTbody.innerHTML = '';
+
+        reportes.forEach((rep) => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50/80 transition-colors group';
+
+            const esTrafico = (rep.categoria === 'Tráfico' || rep.tipo === 'trafico');
+            const esActivo  = (rep.estado === 'activo' || rep.estado === 'Y');
+
+            const lat = Number(rep.latitud).toFixed(4);
+            const lng = Number(rep.longitud).toFixed(4);
+
+            tr.innerHTML = `
+                <td class="py-2.5 px-2.5 font-mono text-[11px] font-bold text-gray-400">
+                    #${rep.id_anonimo}
+                </td>
+                <td class="py-2.5 px-2.5">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${esTrafico ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}">
+                        ${esTrafico ? 'Tráfico' : 'Incidencia'}
+                    </span>
+                </td>
+                <td class="py-2.5 px-2.5 max-w-xs">
+                    <div class="font-bold text-gray-900 text-xs truncate" title="${rep.titulo || 'Sin título'}">
+                        ${rep.titulo || 'Sin título'}
+                    </div>
+                    <div class="text-[11px] text-gray-500 line-clamp-1 mt-0.5" title="${rep.descripcion || ''}">
+                        ${rep.descripcion || 'Sin descripción'}
+                    </div>
+                </td>
+                <td class="py-2.5 px-2.5 whitespace-nowrap">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-mono text-[10px] text-gray-500">${lat}, ${lng}</span>
+                        <button type="button"
+                                class="btn-ver-admin p-1 text-[#003366] bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                                title="Centrar mapa en este reporte">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+                <td class="py-2.5 px-2.5 text-center">
+                    <button type="button"
+                            class="btn-toggle-estado-admin px-2 py-0.5 rounded-full text-[10px] font-black uppercase transition-all ${esActivo ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                            title="Haz clic para alternar estado">
+                        ${esActivo ? 'Activo' : 'Resuelto'}
+                    </button>
+                </td>
+                <td class="py-2.5 px-2.5 text-right whitespace-nowrap">
+                    <button type="button"
+                            class="btn-eliminar-admin inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-black text-red-600 bg-red-50 hover:bg-red-600 hover:text-white transition-all shadow-sm focus:outline-none"
+                            title="Eliminar reporte de la base de datos">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Eliminar
+                    </button>
+                </td>
+            `;
+
+            /* Listener: Centrar en mapa */
+            const btnVer = tr.querySelector('.btn-ver-admin');
+            if (btnVer) {
+                btnVer.addEventListener('click', () => {
+                    this._cerrarModalAdmin();
+                    this._centrarEnReporte(parseFloat(rep.latitud), parseFloat(rep.longitud));
+                });
+            }
+
+            /* Listener: Cambiar estado Activo / Resuelto */
+            const btnToggle = tr.querySelector('.btn-toggle-estado-admin');
+            if (btnToggle) {
+                btnToggle.addEventListener('click', async () => {
+                    const estadoActual = (rep.estado === 'activo' || rep.estado === 'Y') ? 'activo' : 'resuelto';
+                    const nuevoEstado = (estadoActual === 'activo') ? 'resuelto' : 'activo';
+
+                    btnToggle.disabled = true;
+                    btnToggle.style.opacity = '0.5';
+
+                    try {
+                        await this.actualizarEstadoReporte(rep.id_anonimo, nuevoEstado);
+                        rep.estado = nuevoEstado;
+
+                        if (this.mapController && this.mapController.marcadoresPorId) {
+                            const marker = this.mapController.marcadoresPorId.get(Number(rep.id_anonimo));
+                            if (marker) {
+                                marker.setOpacity(nuevoEstado === 'resuelto' ? 0.6 : 1.0);
+                            }
+                        }
+
+                        this._renderizarTablaAdmin(this._listaReportesAdmin);
+                        this._actualizarConteosAdmin(this._listaReportesAdmin);
+                    } catch (err) {
+                        btnToggle.disabled = false;
+                        btnToggle.style.opacity = '1';
+                    }
+                });
+            }
+
+            /* Listener: Eliminar reporte con confirmación */
+            const btnEliminar = tr.querySelector('.btn-eliminar-admin');
+            if (btnEliminar) {
+                btnEliminar.addEventListener('click', async () => {
+                    const titulo = rep.titulo || 'Sin título';
+                    const confirmar = confirm(`¿Estás seguro de eliminar permanentemente el reporte #${rep.id_anonimo} ("${titulo}")?\n\nEsta acción borrará el registro de la base de datos.`);
+                    if (!confirmar) return;
+
+                    btnEliminar.disabled = true;
+                    btnEliminar.innerHTML = `
+                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        Borrando…
+                    `;
+
+                    try {
+                        const res = await fetch(`/api/reportes/${rep.id_anonimo}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'x-admin-password': 'VIALIDADES'
+                            }
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok || !data.ok) {
+                            throw new Error(data.mensaje || `HTTP ${res.status}`);
+                        }
+
+                        /* Remover de la lista local */
+                        this._listaReportesAdmin = this._listaReportesAdmin.filter(r => r.id_anonimo !== rep.id_anonimo);
+
+                        /* Remover el marcador del mapa Leaflet */
+                        if (this.mapController) {
+                            this.mapController.removerMarcador(rep.id_anonimo);
+                        }
+
+                        /* Re-renderizar tabla y contadores */
+                        this._renderizarTablaAdmin(this._listaReportesAdmin);
+                        this._actualizarConteosAdmin(this._listaReportesAdmin);
+
+                        this._mostrarFeedback(`Reporte #${rep.id_anonimo} eliminado con éxito`, 'exito');
+
+                    } catch (err) {
+                        console.error('[UIController] Error al eliminar:', err);
+                        this._mostrarFeedback(`Error al eliminar: ${err.message}`, 'error');
+                        btnEliminar.disabled = false;
+                        btnEliminar.innerHTML = `Eliminar`;
+                    }
+                });
+            }
+
+            this.adminReportesTbody.appendChild(tr);
+        });
+    }
+
+    /**
      * _centrarEnReporte(lat, lng) [privado]
-     * Cierra el modal de perfil y vuela el mapa suavemente al punto del reporte.
+     * Cierra el modal de administración y vuela el mapa suavemente al punto del reporte.
      */
     _centrarEnReporte(lat, lng) {
         if (isNaN(lat) || isNaN(lng)) return;
-        this._cerrarPerfil();
+        this._cerrarModalAdmin();
         this.mapa.flyTo([lat, lng], 16, {
             animate: true,
             duration: 1.2

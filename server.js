@@ -214,11 +214,12 @@ apiRouter.get('/reportes', async (req, res) => {
                     latitud,
                     longitud,
                     estado,
+                    created_at,
                     id_categoria,
                     Categoria ( nombre )
                 `)
                 .order('id_anonimo', { ascending: false })
-                .limit(100);
+                .limit(200);
 
             if (error) {
                 console.error('[Supabase] Error al consultar reportes:', error.message);
@@ -232,6 +233,7 @@ apiRouter.get('/reportes', async (req, res) => {
                 latitud:     r.latitud,
                 longitud:    r.longitud,
                 estado:      r.estado || 'activo',
+                created_at:  r.created_at || null,
                 categoria:   (r.Categoria && r.Categoria.nombre)
                     ? r.Categoria.nombre
                     : (r.id_categoria === 1 ? 'Tráfico' : 'Incidencia Vial')
@@ -447,6 +449,95 @@ apiRouter.patch('/reportes/:id/estado', async (req, res) => {
         } catch (error) {
             console.error('[MySQL Fallback] Error al actualizar estado:', error.message);
             return res.status(500).json({ ok: false, mensaje: 'Error al actualizar en BD.' });
+        } finally {
+            if (conn) conn.release();
+        }
+    }
+
+    return res.status(503).json({
+        ok: false,
+        mensaje: 'Base de datos no configurada.'
+    });
+});
+
+
+/* ── POST /api/admin/verify ──────────────────────────────── */
+/**
+ * Verifica la contraseña del administrador para habilitar el panel de gestión.
+ * Contraseña requerida: "VIALIDADES"
+ */
+apiRouter.post('/admin/verify', (req, res) => {
+    const { password } = req.body || {};
+    const claveEsperada = 'VIALIDADES';
+
+    if (password && String(password).trim().toUpperCase() === claveEsperada) {
+        return res.json({ ok: true, mensaje: 'Acceso autorizado como administrador.' });
+    }
+
+    return res.status(401).json({
+        ok: false,
+        mensaje: 'Contraseña de administrador incorrecta.'
+    });
+});
+
+
+/* ── DELETE /api/reportes/:id ─────────────────────────────── */
+/**
+ * Elimina un reporte por su ID único.
+ * Requiere autorización mediante la contraseña "VIALIDADES"
+ * (enviada por header 'x-admin-password', body o query).
+ */
+apiRouter.delete('/reportes/:id', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const passwordHeader = req.headers['x-admin-password'] || req.query.password || req.body?.password;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ ok: false, mensaje: 'ID de reporte inválido.' });
+    }
+
+    if (!passwordHeader || String(passwordHeader).trim().toUpperCase() !== 'VIALIDADES') {
+        return res.status(401).json({
+            ok: false,
+            mensaje: 'Acceso no autorizado: Contraseña de administrador inválida.'
+        });
+    }
+
+    /* 1. Eliminar en Supabase */
+    if (supabase) {
+        try {
+            const { error } = await supabase
+                .from('ReporteAnonimo')
+                .delete()
+                .eq('id_anonimo', id);
+
+            if (error) {
+                console.error('[Supabase] Error al eliminar reporte:', error.message);
+                throw error;
+            }
+
+            console.log(`[API Supabase] Reporte #${id} eliminado.`);
+            return res.json({ ok: true, mensaje: `Reporte #${id} eliminado correctamente.` });
+
+        } catch (error) {
+            console.error('[API Supabase] Error al eliminar:', error.message);
+            return res.status(500).json({
+                ok: false,
+                mensaje: `Error al eliminar reporte en Supabase: ${error.message}`
+            });
+        }
+    }
+
+    /* 2. Fallback a MySQL */
+    if (mysqlPool) {
+        let conn;
+        try {
+            conn = await mysqlPool.getConnection();
+            await conn.execute('DELETE FROM ReporteAnonimo WHERE id_anonimo = ?', [id]);
+            console.log(`[MySQL Fallback] Reporte #${id} eliminado.`);
+            return res.json({ ok: true, mensaje: `Reporte #${id} eliminado correctamente.` });
+        } catch (error) {
+            console.error('[MySQL Fallback] Error al eliminar:', error.message);
+            return res.status(500).json({ ok: false, mensaje: 'Error al eliminar reporte en BD.' });
         } finally {
             if (conn) conn.release();
         }

@@ -379,152 +379,211 @@
 
 
     <!-- ═══════════════════════════════════════════════════════
-         SECCIÓN 6 — MODAL DE PERFIL DE USUARIO
-         Se despliega al hacer click en el icono de usuario (btnUsuario).
-         Sigue la estructura de la referencia:
-           - USER ICON + USERNAME
-           - USER STATUS BAR
-           - REPORT HISTORY (lista dinámica de reportes)
-         Adaptado completamente a pantallas de escritorio y móviles.
+         SECCIÓN 6 — MODAL DE ADMINISTRADOR / GESTIÓN DE REPORTES
+         Acceso restringido mediante contraseña "VIALIDADES".
+         Reutiliza el botón de usuario (btnUsuario) para mostrar:
+           1. Vista de Login de Administrador (ingreso de contraseña)
+           2. Panel de Administrador con tabla de reportes y eliminación
          ═══════════════════════════════════════════════════════ -->
     <div id="userProfileModal"
          class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
          role="dialog"
          aria-modal="true"
-         aria-labelledby="perfilTitulo">
+         aria-labelledby="adminTituloModal">
 
         <!-- Fondo oscuro semitransparente (overlay) -->
         <div id="perfilOverlay"
-             class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+             class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
 
-        <!-- Tarjeta del perfil -->
-        <div class="relative w-full max-w-md mx-auto
-                    bg-white rounded-3xl shadow-2xl
-                    overflow-hidden flex flex-col max-h-[90vh] z-10">
+        <!-- Tarjeta dinámica del Administrador -->
+        <div id="adminCardContainer"
+             class="relative w-full max-w-md mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 transition-all duration-300">
 
-            <!-- ── Cabecera del Perfil con Botón Cerrar ── -->
-            <div class="px-5 sm:px-6 pt-5 pb-3 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#003366]"></span>
-                    <h2 id="perfilTitulo" class="text-xs font-black text-gray-500 uppercase tracking-widest">
-                        Perfil de Usuario
-                    </h2>
-                </div>
-                <button id="btnCerrarPerfil"
-                        class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600
-                               flex items-center justify-center transition-colors focus:outline-none"
-                        aria-label="Cerrar perfil">
+            <!-- ════════════════════════════════════════════════
+                 VISTA 1: LOGIN DE ADMINISTRADOR (Contraseña)
+                 ════════════════════════════════════════════════ -->
+            <div id="viewAdminLogin" class="p-6 sm:p-8 flex flex-col items-center text-center">
+                <!-- Botón de cerrar superior -->
+                <button type="button"
+                        id="btnCerrarPerfil"
+                        class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors focus:outline-none"
+                        aria-label="Cerrar ventana">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
+
+                <!-- Icono de Candado / Escudo -->
+                <div class="w-16 h-16 rounded-2xl bg-[#003366] text-white flex items-center justify-center shadow-lg shadow-blue-950/20 mb-3.5">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 mb-2">
+                    Área Administrativa
+                </span>
+
+                <h2 id="adminTituloModal" class="text-xl sm:text-2xl font-black text-gray-800 tracking-tight">
+                    Acceso de Administrador
+                </h2>
+                <p class="text-xs text-gray-500 mt-1 max-w-xs leading-relaxed">
+                    Ingresa la clave autorizada para acceder a la gestión y eliminación de reportes viales.
+                </p>
+
+                <!-- Formulario de contraseña -->
+                <form id="formAdminLogin" class="w-full mt-5 flex flex-col gap-3" novalidate>
+                    <div class="flex flex-col gap-1 text-left">
+                        <label for="inputAdminPassword" class="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+                            Contraseña
+                        </label>
+                        <div class="relative">
+                            <input id="inputAdminPassword"
+                                   type="password"
+                                   placeholder="Ingresa la contraseña…"
+                                   autocomplete="current-password"
+                                   required
+                                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#003366] transition">
+                        </div>
+                    </div>
+
+                    <!-- Mensaje de error (oculto por defecto) -->
+                    <div id="adminLoginError" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold text-left flex items-center gap-2">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>Contraseña incorrecta. Inténtalo de nuevo.</span>
+                    </div>
+
+                    <!-- Botón de envío -->
+                    <button type="submit"
+                            id="btnAdminLoginSubmit"
+                            class="w-full py-3.5 rounded-xl font-black text-white text-sm uppercase tracking-wider bg-[#003366] hover:bg-[#002244] shadow-lg shadow-blue-950/20 active:scale-95 transition-all mt-1">
+                        Entrar al Panel
+                    </button>
+
+                    <button type="button"
+                            id="btnCancelarLogin"
+                            class="text-xs font-bold text-gray-400 hover:text-gray-600 py-1 transition-colors">
+                        Cancelar y volver al mapa
+                    </button>
+                </form>
             </div>
 
-            <!-- ── Contenido scrollable del perfil ── -->
-            <div class="px-5 sm:px-6 py-4 flex flex-col gap-4 overflow-y-auto">
+            <!-- ════════════════════════════════════════════════
+                 VISTA 2: PANEL DE CONTROL Y TABLA DE REPORTES
+                 ════════════════════════════════════════════════ -->
+            <div id="viewAdminPanel" class="hidden flex flex-col max-h-[90vh]">
 
-                <!-- 1. BLOQUE: USER ICON + USERNAME (como en la referencia) -->
-                <div class="flex items-center gap-3.5 bg-gray-50 p-3.5 sm:p-4 rounded-2xl border border-gray-100">
-                    <!-- USER ICON circular -->
-                    <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#003366] text-white flex items-center justify-center shadow-md flex-shrink-0">
-                        <svg class="w-7 h-7 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                        </svg>
-                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-                    </div>
-
-                    <!-- USERNAME block -->
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <h3 id="perfilNombre" class="font-black text-gray-800 text-base sm:text-lg leading-tight truncate">
-                                Ciudadano Playa
-                            </h3>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#003366] uppercase">
-                                Activo
-                            </span>
-                        </div>
-                        <p id="perfilCorreo" class="text-xs text-gray-500 truncate mt-0.5">
-                            ciudadano@playa.gob.mx
-                        </p>
-                        <p class="text-[11px] font-semibold text-gray-400">
-                            Rol: Ciudadano • Playa del Carmen
-                        </p>
-                    </div>
-                </div>
-
-                <!-- 2. BLOQUE: USER STATUS BAR (barra de estado del usuario) -->
-                <div class="flex flex-col gap-1.5">
-                    <span class="text-[11px] font-black text-gray-500 uppercase tracking-widest">
-                        User Status Bar
-                    </span>
-
-                    <div class="w-full bg-gray-50 rounded-2xl p-3 border border-gray-200 flex flex-col gap-2">
-                        <div class="flex items-center justify-between text-xs">
-                            <div class="flex items-center gap-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span class="font-bold text-gray-700">Estado de Cuenta</span>
-                            </div>
-                            <span class="font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md text-[11px]">
-                                ● Activa / Confiable
-                            </span>
-                        </div>
-
-                        <!-- Barra visual de reputación cívica -->
-                        <div class="flex items-center gap-3">
-                            <div class="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div class="bg-[#003366] h-2 rounded-full transition-all" style="width: 85%"></div>
-                            </div>
-                            <span class="text-xs font-black text-gray-700">85% Nivel 1</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 3. BLOQUE: REPORT HISTORY (historial de reportes del usuario) -->
-                <div class="flex flex-col gap-2">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[11px] font-black text-gray-500 uppercase tracking-widest">
-                                Report History
-                            </span>
-                            <span id="historialContador" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-200 text-gray-700">
-                                0
-                            </span>
-                        </div>
-                        <button id="btnRecargarHistorial" class="text-xs font-bold text-[#003366] hover:underline flex items-center gap-1">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                <!-- Cabecera del Panel Admin -->
+                <div class="px-5 sm:px-6 pt-5 pb-3.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-[#003366] text-white flex items-center justify-center shadow-md flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                             </svg>
-                            Actualizar
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-base sm:text-lg font-black text-gray-800 leading-tight">
+                                    Panel de Administración
+                                </h2>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
+                                    VIALIDADES
+                                </span>
+                            </div>
+                            <p class="text-xs text-gray-500">Gestión y depuración de reportes ciudadanos</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <!-- Botón Recargar -->
+                        <button id="btnAdminRecargar"
+                                type="button"
+                                class="p-2 rounded-xl text-gray-600 hover:text-[#003366] hover:bg-gray-100 transition-colors"
+                                title="Actualizar lista de reportes">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </button>
+                        <!-- Botón Cerrar Sesión -->
+                        <button id="btnAdminLogout"
+                                type="button"
+                                class="px-2.5 py-1 text-xs font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Cerrar sesión de administrador">
+                            Salir
+                        </button>
+                        <!-- Botón Cerrar Modal -->
+                        <button id="btnCerrarAdminPanel"
+                                type="button"
+                                class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors focus:outline-none"
+                                aria-label="Cerrar panel">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
                         </button>
                     </div>
+                </div>
 
-                    <!-- Contenedor scrollable de la lista de reportes -->
-                    <div id="historialReportesLista" class="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
-                        <!-- Spinner de carga inicial -->
-                        <div class="py-8 flex flex-col items-center justify-center text-gray-400 gap-2">
-                            <svg class="w-6 h-6 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                            </svg>
-                            <span class="text-xs font-medium">Cargando reportes...</span>
-                        </div>
+                <!-- Barra de control y conteos -->
+                <div class="px-5 sm:px-6 py-2.5 bg-gray-50/90 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2.5 flex-shrink-0">
+                    <!-- Buscador en vivo -->
+                    <div class="relative flex-1 min-w-[200px] max-w-xs">
+                        <input id="inputAdminBuscar"
+                               type="text"
+                               placeholder="Buscar por título, texto o #ID…"
+                               class="w-full pl-8 pr-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#003366]">
+                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+
+                    <!-- Resumen de conteos -->
+                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
+                        <span class="px-2 py-0.5 rounded-lg bg-white border border-gray-200 shadow-sm" id="adminConteoTotal">
+                            0 reportes
+                        </span>
+                        <span class="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200" id="adminConteoActivos">
+                            0 activos
+                        </span>
+                        <span class="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600 border border-gray-200" id="adminConteoResueltos">
+                            0 resueltos
+                        </span>
                     </div>
                 </div>
 
-            </div><!-- /contenido scrollable -->
+                <!-- Contenedor con scroll para la Tabla -->
+                <div class="flex-1 overflow-x-auto overflow-y-auto px-4 sm:px-6 py-3 max-h-[58vh]">
+                    <table class="w-full text-left text-xs border-collapse min-w-[660px]">
+                        <thead class="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[10px] font-black z-10">
+                            <tr>
+                                <th class="py-2 px-2.5 w-14"># ID</th>
+                                <th class="py-2 px-2.5 w-24">Tipo</th>
+                                <th class="py-2 px-2.5">Título y Descripción</th>
+                                <th class="py-2 px-2.5 w-28">Ubicación</th>
+                                <th class="py-2 px-2.5 w-24 text-center">Estado</th>
+                                <th class="py-2 px-2.5 w-24 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminReportesTbody" class="divide-y divide-gray-100">
+                            <!-- Inyectado dinámicamente con JS -->
+                        </tbody>
+                    </table>
+                </div>
 
-            <!-- ── Footer del modal ── -->
-            <div class="px-5 sm:px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
-                <span class="text-[11px] text-gray-400 font-semibold">
-                    Playa Alerta • 2026
-                </span>
-                <button id="btnCerrarPerfilSecundario"
-                        class="px-4 py-1.5 rounded-xl text-xs font-bold text-gray-600 bg-gray-200 hover:bg-gray-300 transition-colors">
-                    Cerrar
-                </button>
-            </div>
+                <!-- Footer del Panel -->
+                <div class="px-5 sm:px-6 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500 flex-shrink-0">
+                    <span class="font-medium">Playa Alerta • Administración Oficial</span>
+                    <button id="btnCerrarAdminSecundario"
+                            type="button"
+                            class="px-3 py-1 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-gray-700 transition-colors">
+                        Cerrar Panel
+                    </button>
+                </div>
 
-        </div><!-- /tarjeta perfil -->
+            </div><!-- /viewAdminPanel -->
+
+        </div><!-- /adminCardContainer -->
     </div><!-- /userProfileModal -->
 
 
