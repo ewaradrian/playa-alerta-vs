@@ -133,7 +133,7 @@ CREATE POLICY "Permitir insercion publica de ReporteAnonimo"
 
 DROP POLICY IF EXISTS "Permitir actualizacion de ReporteAnonimo" ON "ReporteAnonimo";
 CREATE POLICY "Permitir actualizacion de ReporteAnonimo" 
-    ON "ReporteAnonimo" FOR UPDATE USING (true);
+    ON "ReporteAnonimo" FOR UPDATE USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Permitir eliminacion de ReporteAnonimo" ON "ReporteAnonimo";
 CREATE POLICY "Permitir eliminacion de ReporteAnonimo" 

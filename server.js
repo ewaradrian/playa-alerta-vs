@@ -415,18 +415,27 @@ apiRouter.patch('/reportes/:id/estado', async (req, res) => {
     /* 1. Actualizar en Supabase */
     if (supabase) {
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('ReporteAnonimo')
                 .update({ estado })
-                .eq('id_anonimo', id);
+                .eq('id_anonimo', id)
+                .select();
 
             if (error) {
                 console.error('[Supabase] Error al actualizar estado:', error.message);
                 throw error;
             }
 
-            console.log(`[API Supabase] Reporte ${id} → estado: ${estado}`);
-            return res.json({ ok: true, id, estado });
+            if (!data || data.length === 0) {
+                console.warn(`[Supabase] RLS o ID inexistente: 0 filas actualizadas para reporte #${id}`);
+                return res.status(403).json({
+                    ok: false,
+                    mensaje: `No se pudo actualizar el reporte #${id}. Las políticas de seguridad (RLS) de Supabase están bloqueando el UPDATE o el reporte no existe. Ejecuta las políticas de UPDATE o usa SUPABASE_SERVICE_ROLE_KEY.`
+                });
+            }
+
+            console.log(`[API Supabase] Reporte #${id} → estado: ${estado} (filas afectadas: ${data.length})`);
+            return res.json({ ok: true, id, estado, filasAfectadas: data.length });
 
         } catch (error) {
             return res.status(500).json({
@@ -505,18 +514,27 @@ apiRouter.delete('/reportes/:id', async (req, res) => {
     /* 1. Eliminar en Supabase */
     if (supabase) {
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('ReporteAnonimo')
                 .delete()
-                .eq('id_anonimo', id);
+                .eq('id_anonimo', id)
+                .select();
 
             if (error) {
                 console.error('[Supabase] Error al eliminar reporte:', error.message);
                 throw error;
             }
 
-            console.log(`[API Supabase] Reporte #${id} eliminado.`);
-            return res.json({ ok: true, mensaje: `Reporte #${id} eliminado correctamente.` });
+            if (!data || data.length === 0) {
+                console.warn(`[Supabase] RLS o ID inexistente: 0 filas eliminadas para reporte #${id}`);
+                return res.status(403).json({
+                    ok: false,
+                    mensaje: `No se pudo eliminar el reporte #${id}. Las políticas de seguridad (RLS) de Supabase están bloqueando el DELETE o el reporte no existe. Ejecuta las políticas de DELETE en Supabase o usa SUPABASE_SERVICE_ROLE_KEY.`
+                });
+            }
+
+            console.log(`[API Supabase] Reporte #${id} eliminado (filas eliminadas: ${data.length}).`);
+            return res.json({ ok: true, mensaje: `Reporte #${id} eliminado correctamente.`, filasEliminadas: data.length });
 
         } catch (error) {
             console.error('[API Supabase] Error al eliminar:', error.message);
